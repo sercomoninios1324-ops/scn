@@ -8,7 +8,7 @@ echo === Git Add ===
 "%GIT%" add .
 
 echo === Git Commit ===
-"%GIT%" commit -m "update: remove admin demo credentials and change phone number to 2915224734"
+"%GIT%" commit -m "feat: integrate Supabase backend for categories, products, settings, and storage uploads"
 
 echo === Git Push ===
 "%GIT%" push -u origin main

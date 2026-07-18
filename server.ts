@@ -1,20 +1,41 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
 import express from 'express';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
+import dotenv from 'dotenv';
+import { createClient } from '@supabase/supabase-js';
+
+// Load environment variables
+dotenv.config();
 
 // Polyfills for ES modules as needed
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
 const app = express();
+
+// Initialize Supabase client if keys are present
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+const isSupabaseConfigured = !!(
+  supabaseUrl && 
+  supabaseServiceKey && 
+  !supabaseUrl.includes('your-project-id') &&
+  supabaseUrl !== '' &&
+  supabaseServiceKey !== ''
+);
+
+if (isSupabaseConfigured) {
+  console.log('🔌 Conectando a Supabase...');
+} else {
+  console.warn('⚠️ Advertencia: Credenciales de Supabase no configuradas o incompletas en el archivo .env. Se utilizará base de datos local db.json.');
+}
+
+const supabase = isSupabaseConfigured ? createClient(supabaseUrl!, supabaseServiceKey!) : null;
+
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -251,119 +272,287 @@ function writeDB(data: typeof INITIAL_DB) {
 // ----------------- API ROUTES -----------------
 
 // Public Config / Site Settings
-app.get('/api/settings', (req, res) => {
-  const db = readDB();
-  res.json(db.site_settings);
+app.get('/api/settings', async (req, res) => {
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('site_settings')
+        .select('*')
+        .eq('id', 1)
+        .single();
+      
+      if (error) {
+        if (error.code === 'PGRST116') {
+          // Si no existe, insertar valores por defecto
+          const defaultSettings = {
+            id: 1,
+            whatsapp_number: '2915224734',
+            instagram_url: 'https://instagram.com/seamoscomoninos',
+            email: 'contacto@seamoscomoninos.com',
+            hero_title: 'SCN — Seamos como niños',
+            hero_subtitle: 'Tu catálogo de tecnología favorito. Los mejores dispositivos y accesorios electrónicos, listos para tu hogar o regalo, con asesoría personalizada directa por WhatsApp.'
+          };
+          const { data: inserted, error: insertError } = await supabase
+            .from('site_settings')
+            .insert(defaultSettings)
+            .select()
+            .single();
+          if (insertError) throw insertError;
+          return res.json(inserted);
+        }
+        throw error;
+      }
+      return res.json(data);
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  } else {
+    const db = readDB();
+    res.json(db.site_settings);
+  }
 });
 
 // Update Site Settings (Admin Protected)
-app.put('/api/settings', (req, res) => {
-  const db = readDB();
+app.put('/api/settings', async (req, res) => {
   const { whatsapp_number, instagram_url, email, hero_title, hero_subtitle } = req.body;
-  
-  db.site_settings = {
-    whatsapp_number: whatsapp_number || db.site_settings.whatsapp_number,
-    instagram_url: instagram_url || db.site_settings.instagram_url,
-    email: email || db.site_settings.email,
-    hero_title: hero_title || db.site_settings.hero_title,
-    hero_subtitle: hero_subtitle || db.site_settings.hero_subtitle,
-  };
-  
-  writeDB(db);
-  res.json(db.site_settings);
+  if (supabase) {
+    try {
+      const updateData: any = {};
+      if (whatsapp_number !== undefined) updateData.whatsapp_number = whatsapp_number;
+      if (instagram_url !== undefined) updateData.instagram_url = instagram_url;
+      if (email !== undefined) updateData.email = email;
+      if (hero_title !== undefined) updateData.hero_title = hero_title;
+      if (hero_subtitle !== undefined) updateData.hero_subtitle = hero_subtitle;
+
+      const { data, error } = await supabase
+        .from('site_settings')
+        .update(updateData)
+        .eq('id', 1)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return res.json(data);
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  } else {
+    const db = readDB();
+    db.site_settings = {
+      whatsapp_number: whatsapp_number || db.site_settings.whatsapp_number,
+      instagram_url: instagram_url || db.site_settings.instagram_url,
+      email: email || db.site_settings.email,
+      hero_title: hero_title || db.site_settings.hero_title,
+      hero_subtitle: hero_subtitle || db.site_settings.hero_subtitle,
+    };
+    writeDB(db);
+    res.json(db.site_settings);
+  }
 });
 
 // Public Categories
-app.get('/api/categories', (req, res) => {
-  const db = readDB();
-  res.json(db.categories);
+app.get('/api/categories', async (req, res) => {
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('categories')
+        .select('*')
+        .order('name');
+      if (error) throw error;
+      return res.json(data);
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  } else {
+    const db = readDB();
+    res.json(db.categories);
+  }
 });
 
 // Create Category (Admin Protected)
-app.post('/api/categories', (req, res) => {
-  const db = readDB();
+app.post('/api/categories', async (req, res) => {
   const { name } = req.body;
   if (!name) {
     return res.status(400).json({ error: 'Nombre de categoría es requerido' });
   }
   
   const slug = generateSlug(name);
-  if (db.categories.some(c => c.slug === slug)) {
-    return res.status(400).json({ error: 'La categoría ya existe (slug duplicado)' });
+
+  if (supabase) {
+    try {
+      const { data: existing } = await supabase
+        .from('categories')
+        .select('id')
+        .eq('slug', slug)
+        .maybeSingle();
+
+      if (existing) {
+        return res.status(400).json({ error: 'La categoría ya existe (slug duplicado)' });
+      }
+
+      const { data, error } = await supabase
+        .from('categories')
+        .insert({ name, slug })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return res.status(201).json(data);
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  } else {
+    const db = readDB();
+    if (db.categories.some(c => c.slug === slug)) {
+      return res.status(400).json({ error: 'La categoría ya existe (slug duplicado)' });
+    }
+
+    const newCategory = {
+      id: 'c' + Math.random().toString(36).substr(2, 9),
+      name,
+      slug
+    };
+
+    db.categories.push(newCategory);
+    writeDB(db);
+    res.status(201).json(newCategory);
   }
-
-  const newCategory = {
-    id: 'c' + Math.random().toString(36).substr(2, 9),
-    name,
-    slug
-  };
-
-  db.categories.push(newCategory);
-  writeDB(db);
-  res.status(201).json(newCategory);
 });
 
 // Public Products (Active, not deleted, combined with images & category details)
-app.get('/api/products', (req, res) => {
-  const db = readDB();
-  
-  // Filter active and non-deleted
-  const activeProducts = db.products.filter(p => p.is_active && p.deleted_at === null);
-  
-  // Map and attach categories and images
-  const enrichedProducts = activeProducts.map(product => {
-    const images = db.product_images.filter(img => img.product_id === product.id);
-    const category = db.categories.find(c => c.id === product.category_id);
-    return {
-      ...product,
-      images: images.sort((a, b) => a.position - b.position),
-      category
-    };
-  });
-  
-  res.json(enrichedProducts);
+app.get('/api/products', async (req, res) => {
+  if (supabase) {
+    try {
+      const { data: products, error } = await supabase
+        .from('products')
+        .select(`
+          *,
+          images:product_images(*),
+          category:categories(*)
+        `)
+        .eq('is_active', true)
+        .is('deleted_at', null)
+        .order('name');
+      
+      if (error) throw error;
+
+      const enrichedProducts = (products || []).map(p => {
+        if (p.images) {
+          p.images.sort((a: any, b: any) => a.position - b.position);
+        }
+        return p;
+      });
+
+      return res.json(enrichedProducts);
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  } else {
+    const db = readDB();
+    const activeProducts = db.products.filter(p => p.is_active && p.deleted_at === null);
+    const enrichedProducts = activeProducts.map(product => {
+      const images = db.product_images.filter(img => img.product_id === product.id);
+      const category = db.categories.find(c => c.id === product.category_id);
+      return {
+        ...product,
+        images: images.sort((a, b) => a.position - b.position),
+        category
+      };
+    });
+    res.json(enrichedProducts);
+  }
 });
 
 // Admin All Products (Including inactive and deleted)
-app.get('/api/admin/products', (req, res) => {
-  const db = readDB();
-  const allProducts = db.products.filter(p => p.deleted_at === null); // Soft delete is actual filter
-  
-  const enrichedProducts = allProducts.map(product => {
-    const images = db.product_images.filter(img => img.product_id === product.id);
-    const category = db.categories.find(c => c.id === product.category_id);
-    return {
-      ...product,
-      images: images.sort((a, b) => a.position - b.position),
-      category
-    };
-  });
-  
-  res.json(enrichedProducts);
+app.get('/api/admin/products', async (req, res) => {
+  if (supabase) {
+    try {
+      const { data: products, error } = await supabase
+        .from('products')
+        .select(`
+          *,
+          images:product_images(*),
+          category:categories(*)
+        `)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+
+      const enrichedProducts = (products || []).map(p => {
+        if (p.images) {
+          p.images.sort((a: any, b: any) => a.position - b.position);
+        }
+        return p;
+      });
+
+      return res.json(enrichedProducts);
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  } else {
+    const db = readDB();
+    const allProducts = db.products.filter(p => p.deleted_at === null);
+    const enrichedProducts = allProducts.map(product => {
+      const images = db.product_images.filter(img => img.product_id === product.id);
+      const category = db.categories.find(c => c.id === product.category_id);
+      return {
+        ...product,
+        images: images.sort((a, b) => a.position - b.position),
+        category
+      };
+    });
+    res.json(enrichedProducts);
+  }
 });
 
 // Single Product by Slug
-app.get('/api/products/:slug', (req, res) => {
-  const db = readDB();
-  const product = db.products.find(p => p.slug === req.params.slug && p.deleted_at === null);
-  
-  if (!product) {
-    return res.status(404).json({ error: 'Producto no encontrado' });
+app.get('/api/products/:slug', async (req, res) => {
+  const { slug } = req.params;
+  if (supabase) {
+    try {
+      const { data: product, error } = await supabase
+        .from('products')
+        .select(`
+          *,
+          images:product_images(*),
+          category:categories(*)
+        `)
+        .eq('slug', slug)
+        .is('deleted_at', null)
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!product) {
+        return res.status(404).json({ error: 'Producto no encontrado' });
+      }
+
+      if (product.images) {
+        product.images.sort((a: any, b: any) => a.position - b.position);
+      }
+
+      return res.json(product);
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  } else {
+    const db = readDB();
+    const product = db.products.find(p => p.slug === slug && p.deleted_at === null);
+    if (!product) {
+      return res.status(404).json({ error: 'Producto no encontrado' });
+    }
+    const images = db.product_images.filter(img => img.product_id === product.id);
+    const category = db.categories.find(c => c.id === product.category_id);
+    res.json({
+      ...product,
+      images: images.sort((a, b) => a.position - b.position),
+      category
+    });
   }
-  
-  const images = db.product_images.filter(img => img.product_id === product.id);
-  const category = db.categories.find(c => c.id === product.category_id);
-  
-  res.json({
-    ...product,
-    images: images.sort((a, b) => a.position - b.position),
-    category
-  });
 });
 
 // Create Product (Admin Protected)
-app.post('/api/products', (req, res) => {
-  const db = readDB();
+app.post('/api/products', async (req, res) => {
   const {
     name,
     short_description,
@@ -383,73 +572,136 @@ app.post('/api/products', (req, res) => {
   }
 
   const slug = generateSlug(name);
-  if (db.products.some(p => p.slug === slug && p.deleted_at === null)) {
-    return res.status(400).json({ error: 'Ya existe un producto activo con ese nombre/slug' });
-  }
 
-  const productId = 'p' + Math.random().toString(36).substr(2, 9);
-  
-  const newProduct = {
-    id: productId,
-    name,
-    slug,
-    short_description: short_description || '',
-    description: description || '',
-    price: Number(price),
-    currency: 'ARS',
-    includes: Array.isArray(includes) ? includes : [],
-    category_id,
-    is_featured: !!is_featured,
-    is_active: is_active !== undefined ? !!is_active : true,
-    sku: sku || 'SKU-' + Math.floor(Math.random() * 1000000),
-    stock: stock !== undefined ? Number(stock) : 0,
-    deleted_at: null,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
-  };
+  if (supabase) {
+    try {
+      const { data: existing } = await supabase
+        .from('products')
+        .select('id')
+        .eq('slug', slug)
+        .is('deleted_at', null)
+        .maybeSingle();
 
-  db.products.push(newProduct);
+      if (existing) {
+        return res.status(400).json({ error: 'Ya existe un producto activo con ese nombre/slug' });
+      }
 
-  // Handle product images
-  if (Array.isArray(images) && images.length > 0) {
-    images.forEach((img, index) => {
+      const generatedSku = sku || 'SKU-' + Math.floor(Math.random() * 1000000);
+
+      const { data: newProduct, error: productError } = await supabase
+        .from('products')
+        .insert({
+          name,
+          slug,
+          short_description: short_description || '',
+          description: description || '',
+          price: Number(price),
+          currency: 'ARS',
+          includes: Array.isArray(includes) ? includes : [],
+          category_id,
+          is_featured: !!is_featured,
+          is_active: is_active !== undefined ? !!is_active : true,
+          sku: generatedSku,
+          stock: stock !== undefined ? Number(stock) : 0,
+        })
+        .select()
+        .single();
+
+      if (productError) throw productError;
+
+      const productId = newProduct.id;
+      const imagesToInsert: any[] = [];
+
+      if (Array.isArray(images) && images.length > 0) {
+        images.forEach((img, index) => {
+          imagesToInsert.push({
+            product_id: productId,
+            storage_path: img.storage_path,
+            position: img.position !== undefined ? Number(img.position) : index + 1,
+            is_cover: !!img.is_cover
+          });
+        });
+      } else {
+        imagesToInsert.push({
+          product_id: productId,
+          storage_path: 'https://images.unsplash.com/photo-1526738549149-8e07eca6c147?auto=format&fit=crop&w=800&q=80',
+          position: 1,
+          is_cover: true
+        });
+      }
+
+      const { data: insertedImages, error: imagesError } = await supabase
+        .from('product_images')
+        .insert(imagesToInsert)
+        .select();
+
+      if (imagesError) throw imagesError;
+
+      return res.status(201).json({
+        ...newProduct,
+        images: insertedImages
+      });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  } else {
+    const db = readDB();
+    if (db.products.some(p => p.slug === slug && p.deleted_at === null)) {
+      return res.status(400).json({ error: 'Ya existe un producto activo con ese nombre/slug' });
+    }
+    const productId = 'p' + Math.random().toString(36).substr(2, 9);
+    const newProduct = {
+      id: productId,
+      name,
+      slug,
+      short_description: short_description || '',
+      description: description || '',
+      price: Number(price),
+      currency: 'ARS',
+      includes: Array.isArray(includes) ? includes : [],
+      category_id,
+      is_featured: !!is_featured,
+      is_active: is_active !== undefined ? !!is_active : true,
+      sku: sku || 'SKU-' + Math.floor(Math.random() * 1000000),
+      stock: stock !== undefined ? Number(stock) : 0,
+      deleted_at: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    db.products.push(newProduct);
+
+    if (Array.isArray(images) && images.length > 0) {
+      images.forEach((img, index) => {
+        db.product_images.push({
+          id: 'img' + Math.random().toString(36).substr(2, 9),
+          product_id: productId,
+          storage_path: img.storage_path,
+          position: img.position !== undefined ? Number(img.position) : index + 1,
+          is_cover: !!img.is_cover
+        });
+      });
+    } else {
       db.product_images.push({
         id: 'img' + Math.random().toString(36).substr(2, 9),
         product_id: productId,
-        storage_path: img.storage_path,
-        position: img.position !== undefined ? Number(img.position) : index + 1,
-        is_cover: !!img.is_cover
+        storage_path: 'https://images.unsplash.com/photo-1526738549149-8e07eca6c147?auto=format&fit=crop&w=800&q=80',
+        position: 1,
+        is_cover: true
       });
-    });
-  } else {
-    // Add default image placeholder if none provided
-    db.product_images.push({
-      id: 'img' + Math.random().toString(36).substr(2, 9),
-      product_id: productId,
-      storage_path: 'https://images.unsplash.com/photo-1526738549149-8e07eca6c147?auto=format&fit=crop&w=800&q=80',
-      position: 1,
-      is_cover: true
+    }
+
+    writeDB(db);
+    res.status(201).json({
+      ...newProduct,
+      images: db.product_images.filter(img => img.product_id === productId)
     });
   }
-
-  writeDB(db);
-  
-  res.status(201).json({
-    ...newProduct,
-    images: db.product_images.filter(img => img.product_id === productId)
-  });
 });
 
 // Update Product (Admin Protected)
-app.put('/api/products/:id', (req, res) => {
-  const db = readDB();
+app.put('/api/products/:id', async (req, res) => {
   const productId = req.params.id;
-  const productIndex = db.products.findIndex(p => p.id === productId && p.deleted_at === null);
-
-  if (productIndex === -1) {
-    return res.status(404).json({ error: 'Producto no encontrado' });
-  }
-
   const {
     name,
     short_description,
@@ -464,74 +716,184 @@ app.put('/api/products/:id', (req, res) => {
     images // Array of { id, storage_path, is_cover, position }
   } = req.body;
 
-  const currentProduct = db.products[productIndex];
-  
-  // Re-slug if name changes
-  let slug = currentProduct.slug;
-  if (name && name !== currentProduct.name) {
-    slug = generateSlug(name);
-    if (db.products.some(p => p.id !== productId && p.slug === slug && p.deleted_at === null)) {
-      return res.status(400).json({ error: 'Ya existe otro producto activo con ese nombre/slug' });
-    }
-  }
+  if (supabase) {
+    try {
+      const { data: currentProduct, error: fetchError } = await supabase
+        .from('products')
+        .select('*')
+        .eq('id', productId)
+        .is('deleted_at', null)
+        .maybeSingle();
 
-  db.products[productIndex] = {
-    ...currentProduct,
-    name: name || currentProduct.name,
-    slug,
-    short_description: short_description !== undefined ? short_description : currentProduct.short_description,
-    description: description !== undefined ? description : currentProduct.description,
-    price: price !== undefined ? Number(price) : currentProduct.price,
-    category_id: category_id || currentProduct.category_id,
-    is_featured: is_featured !== undefined ? !!is_featured : currentProduct.is_featured,
-    is_active: is_active !== undefined ? !!is_active : currentProduct.is_active,
-    sku: sku !== undefined ? sku : currentProduct.sku,
-    stock: stock !== undefined ? Number(stock) : currentProduct.stock,
-    includes: Array.isArray(includes) ? includes : currentProduct.includes,
-    updated_at: new Date().toISOString()
-  };
+      if (fetchError) throw fetchError;
+      if (!currentProduct) {
+        return res.status(404).json({ error: 'Producto no encontrado' });
+      }
 
-  // Update images
-  if (images !== undefined) {
-    // Delete existing images for this product
-    db.product_images = db.product_images.filter(img => img.product_id !== productId);
-    
-    // Write new images list
-    if (Array.isArray(images)) {
-      images.forEach((img, index) => {
-        db.product_images.push({
-          id: img.id || 'img' + Math.random().toString(36).substr(2, 9),
-          product_id: productId,
-          storage_path: img.storage_path,
-          position: img.position !== undefined ? Number(img.position) : index + 1,
-          is_cover: !!img.is_cover
-        });
+      let slug = currentProduct.slug;
+      if (name && name !== currentProduct.name) {
+        slug = generateSlug(name);
+        const { data: duplicate } = await supabase
+          .from('products')
+          .select('id')
+          .eq('slug', slug)
+          .neq('id', productId)
+          .is('deleted_at', null)
+          .maybeSingle();
+
+        if (duplicate) {
+          return res.status(400).json({ error: 'Ya existe otro producto activo con ese nombre/slug' });
+        }
+      }
+
+      const updateData: any = { updated_at: new Date().toISOString() };
+      if (name !== undefined) updateData.name = name;
+      updateData.slug = slug;
+      if (short_description !== undefined) updateData.short_description = short_description;
+      if (description !== undefined) updateData.description = description;
+      if (price !== undefined) updateData.price = Number(price);
+      if (category_id !== undefined) updateData.category_id = category_id;
+      if (is_featured !== undefined) updateData.is_featured = !!is_featured;
+      if (is_active !== undefined) updateData.is_active = !!is_active;
+      if (sku !== undefined) updateData.sku = sku;
+      if (stock !== undefined) updateData.stock = Number(stock);
+      if (includes !== undefined) updateData.includes = Array.isArray(includes) ? includes : currentProduct.includes;
+
+      const { data: updatedProduct, error: updateError } = await supabase
+        .from('products')
+        .update(updateData)
+        .eq('id', productId)
+        .select()
+        .single();
+
+      if (updateError) throw updateError;
+
+      if (images !== undefined) {
+        const { error: deleteImagesError } = await supabase
+          .from('product_images')
+          .delete()
+          .eq('product_id', productId);
+
+        if (deleteImagesError) throw deleteImagesError;
+
+        if (Array.isArray(images) && images.length > 0) {
+          const imagesToInsert = images.map((img, index) => ({
+            product_id: productId,
+            storage_path: img.storage_path,
+            position: img.position !== undefined ? Number(img.position) : index + 1,
+            is_cover: !!img.is_cover
+          }));
+          const { error: insertImagesError } = await supabase
+            .from('product_images')
+            .insert(imagesToInsert);
+
+          if (insertImagesError) throw insertImagesError;
+        }
+      }
+
+      const { data: finalImages } = await supabase
+        .from('product_images')
+        .select('*')
+        .eq('product_id', productId)
+        .order('position');
+
+      return res.json({
+        ...updatedProduct,
+        images: finalImages || []
       });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
     }
-  }
+  } else {
+    const db = readDB();
+    const productIndex = db.products.findIndex(p => p.id === productId && p.deleted_at === null);
+    if (productIndex === -1) {
+      return res.status(404).json({ error: 'Producto no encontrado' });
+    }
+    const currentProduct = db.products[productIndex];
+    
+    let slug = currentProduct.slug;
+    if (name && name !== currentProduct.name) {
+      slug = generateSlug(name);
+      if (db.products.some(p => p.id !== productId && p.slug === slug && p.deleted_at === null)) {
+        return res.status(400).json({ error: 'Ya existe otro producto activo con ese nombre/slug' });
+      }
+    }
 
-  writeDB(db);
-  res.json({
-    ...db.products[productIndex],
-    images: db.product_images.filter(img => img.product_id === productId)
-  });
+    db.products[productIndex] = {
+      ...currentProduct,
+      name: name || currentProduct.name,
+      slug,
+      short_description: short_description !== undefined ? short_description : currentProduct.short_description,
+      description: description !== undefined ? description : currentProduct.description,
+      price: price !== undefined ? Number(price) : currentProduct.price,
+      category_id: category_id || currentProduct.category_id,
+      is_featured: is_featured !== undefined ? !!is_featured : currentProduct.is_featured,
+      is_active: is_active !== undefined ? !!is_active : currentProduct.is_active,
+      sku: sku !== undefined ? sku : currentProduct.sku,
+      stock: stock !== undefined ? Number(stock) : currentProduct.stock,
+      includes: Array.isArray(includes) ? includes : currentProduct.includes,
+      updated_at: new Date().toISOString()
+    };
+
+    if (images !== undefined) {
+      db.product_images = db.product_images.filter(img => img.product_id !== productId);
+      if (Array.isArray(images)) {
+        images.forEach((img, index) => {
+          db.product_images.push({
+            id: img.id || 'img' + Math.random().toString(36).substr(2, 9),
+            product_id: productId,
+            storage_path: img.storage_path,
+            position: img.position !== undefined ? Number(img.position) : index + 1,
+            is_cover: !!img.is_cover
+          });
+        });
+      }
+    }
+
+    writeDB(db);
+    res.json({
+      ...db.products[productIndex],
+      images: db.product_images.filter(img => img.product_id === productId)
+    });
+  }
 });
 
 // Soft Delete Product (Admin Protected)
-app.delete('/api/products/:id', (req, res) => {
-  const db = readDB();
+app.delete('/api/products/:id', async (req, res) => {
   const productId = req.params.id;
-  const productIndex = db.products.findIndex(p => p.id === productId && p.deleted_at === null);
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .update({
+          deleted_at: new Date().toISOString(),
+          is_active: false
+        })
+        .eq('id', productId)
+        .select()
+        .maybeSingle();
 
-  if (productIndex === -1) {
-    return res.status(404).json({ error: 'Producto no encontrado o ya eliminado' });
+      if (error) throw error;
+      if (!data) {
+        return res.status(404).json({ error: 'Producto no encontrado o ya eliminado' });
+      }
+      return res.json({ success: true, message: 'Producto eliminado correctamente' });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  } else {
+    const db = readDB();
+    const productIndex = db.products.findIndex(p => p.id === productId && p.deleted_at === null);
+    if (productIndex === -1) {
+      return res.status(404).json({ error: 'Producto no encontrado o ya eliminado' });
+    }
+    db.products[productIndex].deleted_at = new Date().toISOString();
+    db.products[productIndex].is_active = false;
+    
+    writeDB(db);
+    res.json({ success: true, message: 'Producto eliminado correctamente' });
   }
-
-  db.products[productIndex].deleted_at = new Date().toISOString();
-  db.products[productIndex].is_active = false;
-  
-  writeDB(db);
-  res.json({ success: true, message: 'Producto eliminado correctamente' });
 });
 
 // Admin Authentication Simulation
@@ -554,7 +916,7 @@ app.post('/api/admin/login', (req, res) => {
 });
 
 // Admin Image Drag & Drop / Base64 Upload
-app.post('/api/admin/upload', (req, res) => {
+app.post('/api/admin/upload', async (req, res) => {
   const { base64, fileName } = req.body;
   if (!base64 || !fileName) {
     return res.status(400).json({ error: 'Faltan parámetros de subida (base64, fileName)' });
@@ -571,15 +933,38 @@ app.post('/api/admin/upload', (req, res) => {
     
     const ext = path.extname(fileName) || '.jpg';
     const uniqueName = 'prod_' + Date.now() + '_' + Math.floor(Math.random() * 1000) + ext;
-    const savePath = path.join(UPLOADS_DIR, uniqueName);
 
-    fs.writeFileSync(savePath, buffer);
-    
-    // Return relative URL that our Express server will serve statically
-    res.json({
-      success: true,
-      url: `/uploads/${uniqueName}`
-    });
+    if (supabase) {
+      // Subir a Supabase Storage
+      const { data, error } = await supabase.storage
+        .from('product-images')
+        .upload(uniqueName, buffer, {
+          contentType: type,
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (error) throw error;
+
+      // Obtener URL pública
+      const { data: publicUrlData } = supabase.storage
+        .from('product-images')
+        .getPublicUrl(uniqueName);
+
+      return res.json({
+        success: true,
+        url: publicUrlData.publicUrl
+      });
+    } else {
+      // Guardar localmente
+      const savePath = path.join(UPLOADS_DIR, uniqueName);
+      fs.writeFileSync(savePath, buffer);
+      
+      return res.json({
+        success: true,
+        url: `/uploads/${uniqueName}`
+      });
+    }
   } catch (err: any) {
     console.error('Upload Error:', err);
     res.status(500).json({ error: 'Error procesando la subida de imagen: ' + err.message });
