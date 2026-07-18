@@ -1,23 +1,16 @@
 @echo off
-set GIT="C:\Program Files\Git\cmd\git.exe"
+set GIT=C:\Program Files\Git\cmd\git.exe
 
-echo === git init ===
-%GIT% init
+echo === Git Status ===
+"%GIT%" status
 
-echo === git add all ===
-%GIT% add .
+echo === Git Add ===
+"%GIT%" add .
 
-echo === git commit ===
-%GIT% commit -m "first commit"
+echo === Git Commit ===
+"%GIT%" commit -m "update: remove admin demo credentials and change phone number to 2915224734"
 
-echo === git branch -M main ===
-%GIT% branch -M main
-
-echo === git remote add origin ===
-%GIT% remote remove origin 2>nul
-%GIT% remote add origin https://github.com/sercomoninios1324-ops/scn.git
-
-echo === git push ===
-%GIT% push -u origin main
+echo === Git Push ===
+"%GIT%" push -u origin main
 
 echo === DONE ===

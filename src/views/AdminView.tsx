@@ -479,11 +479,7 @@ export default function AdminView({
             </button>
           </form>
 
-          <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 p-3.5 text-3xs text-scn-text-normal leading-relaxed text-center">
-            <strong>Credenciales Demo:</strong><br />
-            Email: <code>admin@scn.com</code><br />
-            Contraseña: <code>admin123</code>
-          </div>
+
         </div>
       </div>
     );
@@ -1109,7 +1105,7 @@ export default function AdminView({
                   id="settings-whatsapp"
                   type="text"
                   required
-                  placeholder="Ej. 5491122334455"
+                  placeholder="Ej. 2915224734"
                   value={settingsWhatsapp}
                   onChange={(e) => setSettingsWhatsapp(e.target.value)}
                   className="w-full px-3.5 py-2 rounded-lg border border-scn-border bg-scn-bg-section text-xs"

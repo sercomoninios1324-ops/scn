@@ -56,7 +56,7 @@ const INITIAL_DB = {
     { id: 'c1000000-0000-0000-0000-000000000003', name: 'Accesorios', slug: 'accesorios' }
   ],
   site_settings: {
-    whatsapp_number: '5491122334455',
+    whatsapp_number: '2915224734',
     instagram_url: 'https://instagram.com/seamoscomoninos',
     email: 'contacto@seamoscomoninos.com',
     hero_title: 'SCN — Seamos como niños',
@@ -550,7 +550,7 @@ app.post('/api/admin/login', (req, res) => {
     });
   }
   
-  return res.status(401).json({ error: 'Credenciales incorrectas. Usá admin@scn.com y admin123 para el demo.' });
+  return res.status(401).json({ error: 'Credenciales incorrectas.' });
 });
 
 // Admin Image Drag & Drop / Base64 Upload
