@@ -1,0 +1,6 @@
+{
+  "name": "SCN — Seamos como niños",
+  "description": "Catálogo web de electrónica de consumo con venta por WhatsApp, panel de administración autogestionable y arquitectura lista para e-commerce completo.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
