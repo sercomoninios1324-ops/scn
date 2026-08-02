@@ -17,8 +17,8 @@ const PORT = Number(process.env.PORT) || 3000;
 const app = express();
 
 // Initialize Supabase client if keys are present
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 
 const isSupabaseConfigured = !!(
   supabaseUrl && 
@@ -31,10 +31,26 @@ const isSupabaseConfigured = !!(
 if (isSupabaseConfigured) {
   console.log('🔌 Conectando a Supabase...');
 } else {
-  console.warn('⚠️ Advertencia: Credenciales de Supabase no configuradas o incompletas en el archivo .env. Se utilizará base de datos local db.json.');
+  console.warn('⚠️ Advertencia: Credenciales de Supabase no configuradas o incompletas. Se utilizará base de datos local db.json.');
 }
 
-const supabase = isSupabaseConfigured ? createClient(supabaseUrl!, supabaseServiceKey!) : null;
+let supabase = isSupabaseConfigured ? createClient(supabaseUrl!, supabaseServiceKey!) : null;
+
+// Helper to log and dynamically disable Supabase on connection/resolution failures
+function handleSupabaseError(err: any, contextMsg: string) {
+  console.error(`⚠️ Error de Supabase en ${contextMsg}:`, err.message || err);
+  const errMsg = String(err.message || err).toLowerCase();
+  if (
+    errMsg.includes('fetch failed') || 
+    errMsg.includes('getaddrinfo') || 
+    errMsg.includes('enotfound') || 
+    errMsg.includes('connection') ||
+    errMsg.includes('failed to fetch')
+  ) {
+    console.warn('🔌 Desactivando Supabase dinámicamente debido a fallo de conexión o DNS.');
+    supabase = null;
+  }
+}
 
 
 app.use(express.json({ limit: '10mb' }));
@@ -304,6 +320,11 @@ app.get('/api/settings', async (req, res) => {
       }
       return res.json(data);
     } catch (err: any) {
+      handleSupabaseError(err, 'GET /api/settings');
+      if (!supabase) {
+        const db = readDB();
+        return res.json(db.site_settings);
+      }
       return res.status(500).json({ error: err.message });
     }
   } else {
@@ -334,6 +355,19 @@ app.put('/api/settings', async (req, res) => {
       if (error) throw error;
       return res.json(data);
     } catch (err: any) {
+      handleSupabaseError(err, 'PUT /api/settings');
+      if (!supabase) {
+        const db = readDB();
+        db.site_settings = {
+          whatsapp_number: whatsapp_number || db.site_settings.whatsapp_number,
+          instagram_url: instagram_url || db.site_settings.instagram_url,
+          email: email || db.site_settings.email,
+          hero_title: hero_title || db.site_settings.hero_title,
+          hero_subtitle: hero_subtitle || db.site_settings.hero_subtitle,
+        };
+        writeDB(db);
+        return res.json(db.site_settings);
+      }
       return res.status(500).json({ error: err.message });
     }
   } else {
@@ -361,6 +395,11 @@ app.get('/api/categories', async (req, res) => {
       if (error) throw error;
       return res.json(data);
     } catch (err: any) {
+      handleSupabaseError(err, 'GET /api/categories');
+      if (!supabase) {
+        const db = readDB();
+        return res.json(db.categories);
+      }
       return res.status(500).json({ error: err.message });
     }
   } else {
@@ -399,6 +438,17 @@ app.post('/api/categories', async (req, res) => {
       if (error) throw error;
       return res.status(201).json(data);
     } catch (err: any) {
+      handleSupabaseError(err, 'POST /api/categories');
+      if (!supabase) {
+        const db = readDB();
+        if (db.categories.some(c => c.slug === slug)) {
+          return res.status(400).json({ error: 'La categoría ya existe (slug duplicado)' });
+        }
+        const newCategory = { id: 'c' + Math.random().toString(36).substr(2, 9), name, slug };
+        db.categories.push(newCategory);
+        writeDB(db);
+        return res.status(201).json(newCategory);
+      }
       return res.status(500).json({ error: err.message });
     }
   } else {
@@ -445,6 +495,17 @@ app.get('/api/products', async (req, res) => {
 
       return res.json(enrichedProducts);
     } catch (err: any) {
+      handleSupabaseError(err, 'GET /api/products');
+      if (!supabase) {
+        const db = readDB();
+        const activeProducts = db.products.filter(p => p.is_active && p.deleted_at === null);
+        const enriched = activeProducts.map(product => {
+          const images = db.product_images.filter(img => img.product_id === product.id);
+          const category = db.categories.find(c => c.id === product.category_id);
+          return { ...product, images: images.sort((a, b) => a.position - b.position), category };
+        });
+        return res.json(enriched);
+      }
       return res.status(500).json({ error: err.message });
     }
   } else {
@@ -488,6 +549,17 @@ app.get('/api/admin/products', async (req, res) => {
 
       return res.json(enrichedProducts);
     } catch (err: any) {
+      handleSupabaseError(err, 'GET /api/admin/products');
+      if (!supabase) {
+        const db = readDB();
+        const allProducts = db.products.filter(p => p.deleted_at === null);
+        const enriched = allProducts.map(product => {
+          const images = db.product_images.filter(img => img.product_id === product.id);
+          const category = db.categories.find(c => c.id === product.category_id);
+          return { ...product, images: images.sort((a, b) => a.position - b.position), category };
+        });
+        return res.json(enriched);
+      }
       return res.status(500).json({ error: err.message });
     }
   } else {
@@ -533,6 +605,15 @@ app.get('/api/products/:slug', async (req, res) => {
 
       return res.json(product);
     } catch (err: any) {
+      handleSupabaseError(err, 'GET /api/products/:slug');
+      if (!supabase) {
+        const db = readDB();
+        const product = db.products.find(p => p.slug === slug && p.deleted_at === null);
+        if (!product) return res.status(404).json({ error: 'Producto no encontrado' });
+        const images = db.product_images.filter(img => img.product_id === product.id);
+        const category = db.categories.find(c => c.id === product.category_id);
+        return res.json({ ...product, images: images.sort((a, b) => a.position - b.position), category });
+      }
       return res.status(500).json({ error: err.message });
     }
   } else {
@@ -642,6 +723,51 @@ app.post('/api/products', async (req, res) => {
         images: insertedImages
       });
     } catch (err: any) {
+      handleSupabaseError(err, 'POST /api/products');
+      if (!supabase) {
+        // Fall through to local DB path below
+        const db = readDB();
+        if (db.products.some(p => p.slug === slug && p.deleted_at === null)) {
+          return res.status(400).json({ error: 'Ya existe un producto activo con ese nombre/slug' });
+        }
+        const productId = 'p' + Math.random().toString(36).substr(2, 9);
+        const newProduct = {
+          id: productId, name, slug,
+          short_description: short_description || '',
+          description: description || '',
+          price: Number(price), currency: 'ARS',
+          includes: Array.isArray(includes) ? includes : [],
+          category_id,
+          is_featured: !!is_featured,
+          is_active: is_active !== undefined ? !!is_active : true,
+          sku: sku || 'SKU-' + Math.floor(Math.random() * 1000000),
+          stock: stock !== undefined ? Number(stock) : 0,
+          deleted_at: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        db.products.push(newProduct);
+        if (Array.isArray(images) && images.length > 0) {
+          images.forEach((img, index) => {
+            db.product_images.push({
+              id: 'img' + Math.random().toString(36).substr(2, 9),
+              product_id: productId,
+              storage_path: img.storage_path,
+              position: img.position !== undefined ? Number(img.position) : index + 1,
+              is_cover: !!img.is_cover
+            });
+          });
+        } else {
+          db.product_images.push({
+            id: 'img' + Math.random().toString(36).substr(2, 9),
+            product_id: productId,
+            storage_path: 'https://images.unsplash.com/photo-1526738549149-8e07eca6c147?auto=format&fit=crop&w=800&q=80',
+            position: 1, is_cover: true
+          });
+        }
+        writeDB(db);
+        return res.status(201).json({ ...newProduct, images: db.product_images.filter(img => img.product_id === productId) });
+      }
       return res.status(500).json({ error: err.message });
     }
   } else {
@@ -802,6 +928,49 @@ app.put('/api/products/:id', async (req, res) => {
         images: finalImages || []
       });
     } catch (err: any) {
+      handleSupabaseError(err, 'PUT /api/products/:id');
+      if (!supabase) {
+        const db = readDB();
+        const productIndex = db.products.findIndex(p => p.id === productId && p.deleted_at === null);
+        if (productIndex === -1) return res.status(404).json({ error: 'Producto no encontrado' });
+        const currentProduct = db.products[productIndex];
+        let slug = currentProduct.slug;
+        if (name && name !== currentProduct.name) {
+          slug = generateSlug(name);
+          if (db.products.some(p => p.id !== productId && p.slug === slug && p.deleted_at === null)) {
+            return res.status(400).json({ error: 'Ya existe otro producto activo con ese nombre/slug' });
+          }
+        }
+        db.products[productIndex] = {
+          ...currentProduct,
+          name: name || currentProduct.name, slug,
+          short_description: short_description !== undefined ? short_description : currentProduct.short_description,
+          description: description !== undefined ? description : currentProduct.description,
+          price: price !== undefined ? Number(price) : currentProduct.price,
+          category_id: category_id || currentProduct.category_id,
+          is_featured: is_featured !== undefined ? !!is_featured : currentProduct.is_featured,
+          is_active: is_active !== undefined ? !!is_active : currentProduct.is_active,
+          sku: sku !== undefined ? sku : currentProduct.sku,
+          stock: stock !== undefined ? Number(stock) : currentProduct.stock,
+          includes: Array.isArray(includes) ? includes : currentProduct.includes,
+          updated_at: new Date().toISOString()
+        };
+        if (images !== undefined) {
+          db.product_images = db.product_images.filter(img => img.product_id !== productId);
+          if (Array.isArray(images)) {
+            images.forEach((img, index) => {
+              db.product_images.push({
+                id: img.id || 'img' + Math.random().toString(36).substr(2, 9),
+                product_id: productId, storage_path: img.storage_path,
+                position: img.position !== undefined ? Number(img.position) : index + 1,
+                is_cover: !!img.is_cover
+              });
+            });
+          }
+        }
+        writeDB(db);
+        return res.json({ ...db.products[productIndex], images: db.product_images.filter(img => img.product_id === productId) });
+      }
       return res.status(500).json({ error: err.message });
     }
   } else {
@@ -880,6 +1049,16 @@ app.delete('/api/products/:id', async (req, res) => {
       }
       return res.json({ success: true, message: 'Producto eliminado correctamente' });
     } catch (err: any) {
+      handleSupabaseError(err, 'DELETE /api/products/:id');
+      if (!supabase) {
+        const db = readDB();
+        const productIndex = db.products.findIndex(p => p.id === productId && p.deleted_at === null);
+        if (productIndex === -1) return res.status(404).json({ error: 'Producto no encontrado o ya eliminado' });
+        db.products[productIndex].deleted_at = new Date().toISOString();
+        db.products[productIndex].is_active = false;
+        writeDB(db);
+        return res.json({ success: true, message: 'Producto eliminado correctamente' });
+      }
       return res.status(500).json({ error: err.message });
     }
   } else {
@@ -995,4 +1174,9 @@ async function startServer() {
   });
 }
 
-startServer();
+// Export app for serverless/Vercel support
+export default app;
+
+if (process.env.VERCEL !== '1') {
+  startServer();
+}

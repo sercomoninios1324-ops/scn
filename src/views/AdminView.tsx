@@ -11,6 +11,18 @@ import {
 } from 'lucide-react';
 import { Product, Category, SiteSettings } from '../types';
 
+// Helper: safely parse JSON, throwing a descriptive error if the response is not JSON
+async function safeJson(res: Response): Promise<any> {
+  const contentType = res.headers.get('content-type') || '';
+  if (contentType.includes('application/json')) {
+    return res.json();
+  }
+  // Server returned HTML/text (e.g. 404 page or crash page) – show a useful message
+  const text = await res.text();
+  throw new Error(`Error del servidor (${res.status}): Respuesta inesperada. ${text.substring(0, 120)}`);
+}
+
+
 interface AdminViewProps {
   products: (Product & { images: { id?: string; storage_path: string; is_cover: boolean; position: number }[]; category?: { name: string } })[];
   categories: Category[];
@@ -98,7 +110,7 @@ export default function AdminView({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
       });
-      const data = await res.json();
+      const data = await safeJson(res);
 
       if (!res.ok) {
         throw new Error(data.error || 'Credenciales inválidas');
@@ -179,7 +191,7 @@ export default function AdminView({
       });
 
       if (!res.ok) {
-        const data = await res.json();
+        const data = await safeJson(res);
         throw new Error(data.error || 'Error al guardar el producto');
       }
 
@@ -250,7 +262,7 @@ export default function AdminView({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: newCatName.trim() })
       });
-      const data = await res.json();
+      const data = await safeJson(res);
 
       if (!res.ok) {
         throw new Error(data.error || 'Error al crear la categoría');
@@ -302,7 +314,7 @@ export default function AdminView({
             fileName: file.name
           })
         });
-        const data = await res.json();
+        const data = await safeJson(res);
         
         if (!res.ok) {
           throw new Error(data.error || 'Fallo de subida');
