@@ -56,16 +56,24 @@ function handleSupabaseError(err: any, contextMsg: string) {
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Ensure data and uploads directories exist
+// Ensure data and uploads directories exist (fail-safe for read-only filesystems like Vercel Lambda)
 const DATA_DIR = path.join(process.cwd(), 'data');
 const DB_FILE = path.join(DATA_DIR, 'db.json');
 const UPLOADS_DIR = path.join(process.cwd(), 'uploads');
 
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
+try {
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  }
+} catch (e) {
+  console.warn('⚠️ No se pudo crear el directorio de datos (filesystem de solo lectura). Se usará base de datos en memoria.');
 }
-if (!fs.existsSync(UPLOADS_DIR)) {
-  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+try {
+  if (!fs.existsSync(UPLOADS_DIR)) {
+    fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+  }
+} catch (e) {
+  console.warn('⚠️ No se pudo crear el directorio de uploads.');
 }
 
 // Serve uploaded images statically
@@ -263,12 +271,16 @@ const INITIAL_DB = {
 };
 
 // Database Getter and Setter helpers
+// Falls back to in-memory INITIAL_DB on any filesystem error (e.g. Vercel serverless)
 function readDB() {
-  if (!fs.existsSync(DB_FILE)) {
-    fs.writeFileSync(DB_FILE, JSON.stringify(INITIAL_DB, null, 2), 'utf-8');
-    return INITIAL_DB;
-  }
   try {
+    if (!fs.existsSync(DB_FILE)) {
+      // Try to seed the file; ignore if filesystem is read-only
+      try {
+        fs.writeFileSync(DB_FILE, JSON.stringify(INITIAL_DB, null, 2), 'utf-8');
+      } catch (_) {}
+      return INITIAL_DB;
+    }
     const data = fs.readFileSync(DB_FILE, 'utf-8');
     return JSON.parse(data);
   } catch (err) {
