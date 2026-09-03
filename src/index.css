@@ -1,0 +1,173 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Outfit", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+
+  /* SCN Design Tokens */
+  --color-scn-primary: var(--primary);
+  --color-scn-hover: var(--primary-hover);
+  --color-scn-medium: var(--primary-medium);
+  --color-scn-soft: var(--primary-soft);
+  --color-scn-pastel: var(--primary-pastel);
+  
+  --color-scn-bg-general: var(--bg-general);
+  --color-scn-bg-section: var(--bg-section);
+  --color-scn-bg-card: var(--bg-card);
+  
+  --color-scn-text-title: var(--text-title);
+  --color-scn-text-normal: var(--text-normal);
+  --color-scn-text-secondary: var(--text-secondary);
+  --color-scn-border: var(--border-custom);
+
+  --color-glass-bg: var(--glass);
+  --color-glass-border: var(--border-glass);
+}
+
+:root {
+  --primary: #6622CF;
+  --primary-hover: #7A39D7;
+  --primary-medium: #9468D4;
+  --primary-soft: #B294DC;
+  --primary-pastel: #C9B2E8;
+  --primary-rgb: 102, 34, 207;
+  
+  --glass: rgba(102, 34, 207, 0.05);
+  --border-glass: rgba(102, 34, 207, 0.12);
+  
+  --bg-general: #FEFEFE;
+  --bg-section: #F7F7F9;
+  --bg-card: #FFFFFF;
+  
+  --text-title: #2B2B2B;
+  --text-normal: #5F6368;
+  --text-secondary: #A8A9AB;
+  --border-custom: #E5E7EB;
+}
+
+.dark {
+  --primary: #9468D4;
+  --primary-hover: #B294DC;
+  --primary-medium: #B294DC;
+  --primary-soft: #9468D4;
+  --primary-pastel: #6622CF;
+  --primary-rgb: 148, 104, 212;
+  
+  --glass: rgba(148, 104, 212, 0.08);
+  --border-glass: rgba(148, 104, 212, 0.2);
+  
+  --bg-general: #0E0E11;
+  --bg-section: #141419;
+  --bg-card: #181820;
+  
+  --text-title: #F2F2F4;
+  --text-normal: #C9C9CE;
+  --text-secondary: #8A8A90;
+  --border-custom: #22222A;
+}
+
+body {
+  background-color: var(--bg-general);
+  color: var(--text-normal);
+  font-family: var(--font-sans);
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+  overflow-x: hidden;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-section);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--primary-soft);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--primary-medium);
+}
+
+/* Input Focus Glow */
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(102, 34, 207, 0.15);
+}
+
+.dark input:focus, .dark select:focus, .dark textarea:focus {
+  box-shadow: 0 0 0 3px rgba(148, 104, 212, 0.25);
+}
+
+/* Page animations */
+.page-enter {
+  animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Glassmorphism styling */
+.glass {
+  background-color: var(--glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-glass);
+}
+
+/* Glow effects */
+.glow-primary {
+  box-shadow: 0 0 25px rgba(var(--primary-rgb), 0.12);
+}
+
+.glow-primary-hover {
+  transition: box-shadow 0.3s ease, border-color 0.3s ease, transform 0.3s ease;
+}
+
+.glow-primary-hover:hover {
+  box-shadow: 0 0 30px rgba(var(--primary-rgb), 0.22);
+  border-color: rgba(var(--primary-rgb), 0.35);
+}
+
+/* Reference site inspired Entrance Slide animation */
+.reveal-item {
+  opacity: 0;
+  transform: translateY(16px);
+  animation: revealUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes revealUp {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Ambient glow pulses */
+.animate-glow-pulse {
+  animation: glowPulse 4s ease-in-out infinite alternate;
+}
+
+@keyframes glowPulse {
+  0% {
+    filter: drop-shadow(0 0 8px rgba(var(--primary-rgb), 0.15));
+    opacity: 0.8;
+  }
+  100% {
+    filter: drop-shadow(0 0 22px rgba(var(--primary-rgb), 0.45));
+    opacity: 1;
+  }
+}
+
