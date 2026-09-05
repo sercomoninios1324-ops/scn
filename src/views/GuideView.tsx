@@ -28,7 +28,7 @@ export default function GuideView() {
     {
       num: '3',
       title: 'Coordinamos pago y entrega',
-      desc: 'Aceptamos efectivo, transferencia bancaria y Mercado Pago. Para transferir usá nuestro alias: ventas.pago.jg — una vez realizado el pago, envianos el comprobante por WhatsApp para confirmar tu pedido.',
+      desc: 'Aceptamos efectivo, transferencia bancaria y Mercado Pago. Para transferir usá nuestro alias: somos.scn — una vez realizado el pago, envianos el comprobante por WhatsApp para confirmar tu pedido.',
       icon: <CreditCard size={24} className="text-amber-500" />,
       color: 'bg-amber-500/10 text-amber-500'
     },
@@ -45,7 +45,7 @@ export default function GuideView() {
     {
       id: 'faq-1',
       q: '¿Qué medios de pago aceptan?',
-      a: 'Aceptamos efectivo al momento de la entrega, transferencia bancaria y Mercado Pago (dinero en cuenta). Para transferir o pagar por Mercado Pago, usá nuestro alias: ventas.pago.jg — Una vez realizado el pago, envianos el comprobante por WhatsApp para confirmar tu pedido. Todos los precios del catálogo corresponden al pago por estos medios.'
+      a: 'Aceptamos efectivo al momento de la entrega, transferencia bancaria y Mercado Pago (dinero en cuenta). Para transferir o pagar por Mercado Pago, usá nuestro alias: somos.scn — Una vez realizado el pago, envianos el comprobante por WhatsApp para confirmar tu pedido. Todos los precios del catálogo corresponden al pago por estos medios.'
     },
     {
       id: 'faq-2',
