@@ -73,10 +73,10 @@ export default function HomeView() {
 
   return (
     <div>
-      <section className="relative h-[100svh] min-h-[560px] max-h-[1100px] overflow-hidden -mt-16 pt-16">
+      <section className="relative min-h-[100svh] overflow-hidden -mt-16 pt-16 min-[480px]:h-[100svh] min-[480px]:min-h-[560px] min-[480px]:max-h-[1100px]">
         <VioletAurora />
 
-        <div className="relative z-10 mx-auto flex h-full w-full max-w-7xl flex-col px-4 pt-4 pb-12 sm:px-6 min-[480px]:flex-row min-[480px]:items-center min-[480px]:pt-0 min-[480px]:pb-0 lg:px-8">
+        <div className="relative z-10 mx-auto flex min-h-[calc(100svh-4rem)] w-full max-w-7xl flex-col px-4 pt-4 pb-4 sm:px-6 min-[480px]:min-h-0 min-[480px]:h-full min-[480px]:flex-row min-[480px]:items-center min-[480px]:pt-0 min-[480px]:pb-0 lg:px-8">
           <div
             className={`relative z-10 flex w-full flex-col items-center text-center min-[480px]:items-start min-[480px]:text-left ${
               showProduct
@@ -153,7 +153,7 @@ export default function HomeView() {
           </div>
 
           {showProduct && pushProduct && pushCover && !wideHero ? (
-            <div className="flex min-h-0 flex-1 items-center justify-center">
+            <div className="flex flex-1 items-center justify-center pt-5 pb-2">
               <div className="w-full max-w-[340px]">
                 <HeroPushCard
                   product={pushProduct}
@@ -176,7 +176,7 @@ export default function HomeView() {
           <button
             type="button"
             onClick={scrollToDestacados}
-            className="absolute bottom-2 left-1/2 z-30 flex -translate-x-1/2 flex-col items-center gap-1 text-center text-scn-text-secondary transition-colors hover:text-scn-text-title cursor-pointer dark:text-white/75 dark:hover:text-white min-[480px]:bottom-5"
+            className="relative z-30 mt-2 flex flex-col items-center gap-1 self-center py-1 text-center text-scn-text-secondary transition-colors hover:text-scn-text-title cursor-pointer dark:text-white/75 dark:hover:text-white min-[480px]:absolute min-[480px]:bottom-5 min-[480px]:left-1/2 min-[480px]:mt-0 min-[480px]:-translate-x-1/2"
             aria-label="Seguí descubriendo más productos"
           >
             <span className="text-[10px] font-semibold tracking-[0.16em] uppercase sm:text-[11px]">
