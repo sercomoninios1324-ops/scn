@@ -76,7 +76,7 @@ export default function HomeView() {
       <section className="relative min-h-[100svh] overflow-hidden -mt-16 pt-16 min-[480px]:h-[100svh] min-[480px]:min-h-[560px] min-[480px]:max-h-[1100px]">
         <VioletAurora />
 
-        <div className="relative z-10 mx-auto flex min-h-[calc(100svh-4rem)] w-full max-w-7xl flex-col px-4 pt-4 pb-4 sm:px-6 min-[480px]:min-h-0 min-[480px]:h-full min-[480px]:flex-row min-[480px]:items-center min-[480px]:pt-0 min-[480px]:pb-0 lg:px-8">
+        <div className="relative z-10 mx-auto flex min-h-[calc(100svh-4rem)] w-full max-w-7xl flex-col px-4 pt-4 pb-10 sm:px-6 min-[480px]:min-h-0 min-[480px]:h-full min-[480px]:flex-row min-[480px]:items-center min-[480px]:pt-0 min-[480px]:pb-0 lg:px-8">
           <div
             className={`relative z-10 flex w-full flex-col items-center text-center min-[480px]:items-start min-[480px]:text-left ${
               showProduct

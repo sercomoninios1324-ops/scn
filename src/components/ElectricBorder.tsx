@@ -534,7 +534,9 @@ const ElectricBorder = ({
       depth: false,
       stencil: false,
       powerPreference: 'default',
-      desynchronized: true
+      // Sin `desynchronized`: en Android hace que el lienzo transparente se presente
+      // fuera de sincronía con la página y parpadee en franjas.
+      desynchronized: false
     });
     const program = gl ? link(gl) : null;
     if (!gl || !program) return;

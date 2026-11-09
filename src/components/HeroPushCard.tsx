@@ -29,7 +29,7 @@ export default function HeroPushCard({ product, cover, formatPrice, compact = fa
   const card = (
     <Link
       to={`/producto/${product.slug}`}
-      className="group relative block overflow-hidden rounded-[22px] border border-scn-border/50 bg-scn-bg-card/90 backdrop-blur-md"
+      className="group relative block overflow-hidden rounded-[22px] border border-scn-border/50 bg-white/95 dark:bg-[#18142a]/95"
     >
       <div className="absolute top-2.5 left-2.5 z-10 inline-flex items-center gap-1.5 rounded-md bg-[#6622CF] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white shadow-lg shadow-[#6622CF]/35">
         <Sparkles size={11} className="opacity-90" />
