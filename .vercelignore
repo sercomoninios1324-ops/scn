@@ -1,0 +1,8 @@
+# No subir a Vercel: cachés locales, datos de desarrollo y documentos internos
+data/img-cache
+data/cart-shares.json
+uploads
+scn-main
+*.pdf
+.claude
+.cursor

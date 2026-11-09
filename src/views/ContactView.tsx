@@ -1,143 +1,235 @@
+import { Link } from 'react-router-dom';
+import {
+  ArrowRight,
+  Clock,
+  Instagram,
+  Mail,
+  MapPin,
+  MessageCircle,
+  Phone,
+  Sparkles,
+} from 'lucide-react';
+import { m as motion } from 'motion/react';
+import VioletAurora from '../components/effects/VioletAurora';
+import { useCatalog } from '../context/CatalogContext';
+import { usePageMeta } from '../hooks/usePageMeta';
+import { useReducedMotion } from '../hooks/useReducedMotion';
+import {
+  buildWhatsAppUrl,
+  formatWhatsAppDisplay,
+  INSTAGRAM_URL,
+  normalizeWhatsAppNumber,
+} from '../lib/whatsapp';
 
+export default function ContactView() {
+  const { settings } = useCatalog();
+  const reducedMotion = useReducedMotion();
+  const number = normalizeWhatsAppNumber(settings.whatsapp_number);
+  const display = formatWhatsAppDisplay(settings.whatsapp_number);
+  const ig = settings.instagram_url || INSTAGRAM_URL;
+  const wa = buildWhatsAppUrl(
+    'Hola SCN! Quiero hacer una consulta desde el catálogo.',
+    number
+  );
+  const telHref = `tel:+${number}`;
+  const mailHref = `mailto:${settings.email}`;
 
-import React from 'react';
-import { MessageSquare, Instagram, Mail, Clock, MapPin, Sparkles, PhoneCall } from 'lucide-react';
-import { SiteSettings } from '../types';
+  usePageMeta({
+    title: 'Contacto | SCN — Bahía Blanca',
+    description:
+      'WhatsApp +54 9 291 522-4734, Instagram @somos_scn. Atención lunes a sábado 9 a 20, Bahía Blanca.',
+    path: '/contacto',
+  });
 
-interface ContactViewProps {
-  settings: SiteSettings;
-}
-
-export default function ContactView({ settings }: ContactViewProps) {
-  const whatsappNumber = settings.whatsapp_number || '2915224734';
-  const cleanedNumber = whatsappNumber.replace(/[^\d]/g, '');
-  const formattedNumber = whatsappNumber.startsWith('+') ? whatsappNumber : `+${whatsappNumber}`;
+  const channels = [
+    {
+      key: 'wa',
+      href: wa,
+      external: true,
+      icon: MessageCircle,
+      title: 'WhatsApp',
+      detail: display,
+    },
+    {
+      key: 'phone',
+      href: telHref,
+      external: false,
+      icon: Phone,
+      title: 'Teléfono',
+      detail: display,
+    },
+    {
+      key: 'ig',
+      href: ig,
+      external: true,
+      icon: Instagram,
+      title: 'Instagram',
+      detail: '@somos_scn',
+    },
+    {
+      key: 'mail',
+      href: mailHref,
+      external: false,
+      icon: Mail,
+      title: 'Correo',
+      detail: settings.email,
+    },
+  ];
 
   return (
-    <div id="contact-view" className="page-enter mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 pb-20 pt-8 space-y-12">
-      
-      
-      <div className="text-center space-y-3 max-w-2xl mx-auto">
-        <span className="inline-flex items-center space-x-1 rounded-full bg-scn-primary/10 px-3 py-1 text-xs font-semibold text-scn-text-title">
-          <Sparkles size={12} className="text-scn-primary" />
-          <span>ESTAMOS PARA AYUDARTE</span>
-        </span>
-        <h1 id="contact-title" className="font-display text-3xl sm:text-4xl font-extrabold text-scn-text-title tracking-tight leading-none">
-          Contactate con Nosotros
-        </h1>
-        <p className="text-sm text-scn-text-normal">
-          ¿Tenés dudas sobre algún producto o querés coordinar una compra? Comunicate por cualquiera de nuestros canales oficiales.
-        </p>
-      </div>
-
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        
-        
-        <div className="space-y-4">
-          <h2 className="font-display text-lg font-bold text-scn-text-title">
-            Canales de Atención Directa
-          </h2>
-
-          
-          <a
-            id="contact-whatsapp-card"
-            href={`https://wa.me/${cleanedNumber}?text=Hola%20SCN!%20Quiero%20hacer%20una%20consulta%20desde%20el%20catalogo.`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center space-x-4 rounded-2xl border border-scn-border bg-scn-bg-card p-5 shadow-2xs hover:border-emerald-500/30 hover:bg-emerald-500/5 transition-all group"
-          >
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-500 group-hover:bg-emerald-500 group-hover:text-white transition-all">
-              <MessageSquare size={22} />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-scn-text-title">WhatsApp Oficial</h3>
-              <p className="text-xs text-scn-text-normal mt-0.5">{formattedNumber}</p>
-              <span className="text-3xs font-semibold text-emerald-500 mt-1 block">Escribinos ahora · Respuesta rápida</span>
-            </div>
-          </a>
-
-          
-          <a
-            id="contact-instagram-card"
-            href={settings.instagram_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center space-x-4 rounded-2xl border border-scn-border bg-scn-bg-card p-5 shadow-2xs hover:border-scn-primary/30 hover:bg-scn-primary/5 transition-all group"
-          >
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-scn-primary/15 text-scn-primary group-hover:bg-scn-primary group-hover:text-white transition-all">
-              <Instagram size={22} />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-scn-text-title">Instagram</h3>
-              <p className="text-xs text-scn-text-normal mt-0.5">@somos_scn</p>
-              <span className="text-3xs font-semibold text-scn-primary mt-1 block">Seguinos para sorteos y novedades</span>
-            </div>
-          </a>
-
-          
-          <a
-            id="contact-email-card"
-            href={`mailto:${settings.email}`}
-            className="flex items-center space-x-4 rounded-2xl border border-scn-border bg-scn-bg-card p-5 shadow-2xs hover:border-blue-500/30 hover:bg-blue-500/5 transition-all group"
-          >
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-500/15 text-blue-500 group-hover:bg-blue-500 group-hover:text-white transition-all">
-              <Mail size={22} />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-scn-text-title">Correo Electrónico</h3>
-              <p className="text-xs text-scn-text-normal mt-0.5 break-all">{settings.email}</p>
-              <span className="text-3xs font-semibold text-blue-500 mt-1 block">Para consultas de stock mayorista o soporte</span>
-            </div>
-          </a>
-
-        </div>
-
-        
-        <div className="rounded-2xl border border-scn-border bg-scn-bg-card p-6 shadow-2xs space-y-6">
-          <h2 className="font-display text-lg font-bold text-scn-text-title border-b border-scn-border pb-3">
-            Información Adicional
-          </h2>
-
-          
-          <div className="flex items-start space-x-3.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-scn-primary/10 text-scn-primary shrink-0">
-              <Clock size={18} />
-            </div>
-            <div>
-              <h3 className="text-xs font-bold text-scn-text-title">Horarios de Atención</h3>
-              <p className="text-xs text-scn-text-normal mt-1 leading-relaxed">
-                Lunes a Sábado: <strong>09:00 a 20:00 hs</strong><br />
-                Domingos y Feriados: Guardias de consulta por WhatsApp.
+    <div className="page-enter">
+      <section className="relative -mt-16 overflow-hidden pt-16">
+        <div className="relative min-h-[220px] sm:min-h-[260px]">
+          <VioletAurora />
+          <div className="relative z-10 mx-auto flex max-w-7xl flex-col justify-end px-4 pb-10 pt-20 sm:px-6 sm:pb-12 sm:pt-24 lg:px-8">
+            <motion.div
+              initial={reducedMotion ? false : { opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+              className="max-w-2xl"
+            >
+              <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.22em] text-[#6622CF]">
+                SCN · Bahía Blanca
               </p>
-            </div>
-          </div>
-
-          
-          <div className="flex items-start space-x-3.5 border-t border-scn-border/50 pt-5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-scn-primary/10 text-scn-primary shrink-0">
-              <MapPin size={18} />
-            </div>
-            <div>
-              <h3 className="text-xs font-bold text-scn-text-title">Zona de Cobertura</h3>
-              <p className="text-xs text-scn-text-normal mt-1 leading-relaxed">
-                Entregas y atención en <strong>Bahía Blanca</strong>, Buenos Aires, y envíos a todo el país.
+              <h1 className="font-display text-4xl font-extrabold tracking-tight text-scn-text-title sm:text-5xl md:text-[3.25rem]">
+                Contacto
+              </h1>
+              <p className="mt-3 max-w-lg text-sm leading-relaxed text-scn-text-normal sm:text-base">
+                Dudas, stock o una compra: escribinos por los canales oficiales.
               </p>
-            </div>
+            </motion.div>
           </div>
-
-          
-          <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 p-4 space-y-1">
-            <h4 className="text-xs font-bold text-amber-700 dark:text-amber-400">Atención Personalizada</h4>
-            <p className="text-2xs text-scn-text-normal leading-relaxed">
-              Trabajamos con un stock rotativo constante. Si querés reservar un producto destacado del catálogo, te aconsejamos confirmarlo por WhatsApp para apartarlo de inmediato.
-            </p>
-          </div>
-
         </div>
+      </section>
 
-      </div>
+      <section className="relative bg-scn-bg-general py-12 md:py-16">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 gap-10 lg:grid-cols-12 lg:gap-12">
+            <div className="space-y-3 lg:col-span-7">
+              {channels.map((ch, i) => (
+                <motion.a
+                  key={ch.key}
+                  href={ch.href}
+                  target={ch.external ? '_blank' : undefined}
+                  rel={ch.external ? 'noopener noreferrer' : undefined}
+                  initial={reducedMotion ? false : { opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{
+                    duration: 0.45,
+                    delay: reducedMotion ? 0 : 0.05 * i,
+                    ease: [0.22, 1, 0.36, 1],
+                  }}
+                  className="glass group flex items-center gap-4 rounded-2xl p-4 transition-transform hover:scale-[1.01] sm:p-5"
+                >
+                  <span className="scn-trust-icon flex h-12 w-12 shrink-0 items-center justify-center">
+                    <ch.icon size={22} strokeWidth={1.75} />
+                  </span>
+                  <div className="min-w-0">
+                    <h2 className="text-sm font-bold text-scn-text-title">{ch.title}</h2>
+                    <p className="mt-0.5 break-all text-xs text-scn-text-normal sm:text-sm">
+                      {ch.detail}
+                    </p>
+                  </div>
+                  <ArrowRight
+                    size={16}
+                    className="ml-auto shrink-0 text-scn-text-secondary transition-transform group-hover:translate-x-0.5 group-hover:text-[#6622CF]"
+                  />
+                </motion.a>
+              ))}
 
+              <a
+                href={wa}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-[#6622CF] px-6 py-3.5 text-sm font-semibold text-white shadow-lg shadow-[#6622CF]/30 transition-transform hover:scale-[1.02] sm:w-auto"
+              >
+                <MessageCircle size={18} />
+                Escribinos por WhatsApp
+              </a>
+            </div>
+
+            <motion.div
+              initial={reducedMotion ? false : { opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{
+                duration: 0.5,
+                delay: reducedMotion ? 0 : 0.12,
+                ease: [0.22, 1, 0.36, 1],
+              }}
+              className="space-y-8 lg:col-span-5"
+            >
+              <div className="scn-trust-pillar flex gap-4">
+                <span className="scn-trust-icon flex h-12 w-12 shrink-0 items-center justify-center">
+                  <Clock size={22} strokeWidth={1.75} />
+                </span>
+                <div>
+                  <h2 className="font-display text-lg font-bold text-scn-text-title">Horarios</h2>
+                  <p className="mt-2 text-sm leading-relaxed text-scn-text-normal">
+                    Lunes a sábado: <strong className="text-scn-text-title">09:00 a 20:00</strong>
+                    <br />
+                    Domingos y Feriados: Guardias de consulta por WhatsApp.
+                  </p>
+                </div>
+              </div>
+
+              <div className="scn-trust-pillar flex gap-4">
+                <span className="scn-trust-icon flex h-12 w-12 shrink-0 items-center justify-center">
+                  <MapPin size={22} strokeWidth={1.75} />
+                </span>
+                <div>
+                  <h2 className="font-display text-lg font-bold text-scn-text-title">Zona</h2>
+                  <p className="mt-2 text-sm leading-relaxed text-scn-text-normal">
+                    Bahía Blanca y envíos a todo el país.
+                  </p>
+                </div>
+              </div>
+
+              <div className="scn-trust-pillar flex gap-4">
+                <span className="scn-trust-icon flex h-12 w-12 shrink-0 items-center justify-center">
+                  <Sparkles size={22} strokeWidth={1.75} />
+                </span>
+                <div>
+                  <h2 className="font-display text-lg font-bold text-scn-text-title">
+                    Atención Personalizada
+                  </h2>
+                  <p className="mt-2 text-sm leading-relaxed text-scn-text-normal">
+                    Trabajamos con un stock rotativo constante. Si querés reservar un producto
+                    destacado del catálogo, te aconsejamos confirmarlo por WhatsApp para apartarlo
+                    de inmediato.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-x-5 gap-y-2 border-t border-scn-border/40 pt-6 text-xs font-semibold">
+                <Link
+                  to="/garantia"
+                  className="text-scn-text-normal transition-colors hover:text-[#6622CF]"
+                >
+                  Garantía
+                </Link>
+                <Link
+                  to="/condiciones"
+                  className="text-scn-text-normal transition-colors hover:text-[#6622CF]"
+                >
+                  Condiciones
+                </Link>
+                <Link
+                  to="/privacidad"
+                  className="text-scn-text-normal transition-colors hover:text-[#6622CF]"
+                >
+                  Privacidad
+                </Link>
+                <Link
+                  to="/nosotros"
+                  className="text-scn-text-normal transition-colors hover:text-[#6622CF]"
+                >
+                  Nosotros
+                </Link>
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

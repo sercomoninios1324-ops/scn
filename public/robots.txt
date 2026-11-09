@@ -1,6 +1,0 @@
-User-agent: *
-Allow: /
-Disallow: /personal
-Disallow: /api/
-
-Sitemap: https://scnbb.vercel.app/sitemap.xml

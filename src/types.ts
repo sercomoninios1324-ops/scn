@@ -14,10 +14,14 @@ export interface Product {
   short_description: string;
   description: string;
   price: number;
+  /** Precio anterior opcional; si es > price se muestra Oferta + tachado */
+  compare_at_price?: number | null;
   currency: string;
   includes: string[];
   category_id: string;
   is_featured: boolean;
+  /** Producto empujado en el hero (solo uno a la vez) */
+  is_push?: boolean;
   is_active: boolean;
   sku: string;
   stock: number;

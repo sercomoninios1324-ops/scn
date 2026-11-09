@@ -2,7 +2,7 @@
 <html lang="es-AR">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>SCN — Seamos como niños | Tecnología en Bahía Blanca</title>
     <meta
       name="description"
@@ -18,10 +18,39 @@
     <meta name="geo.placename" content="Bahía Blanca" />
     <meta name="geo.position" content="-38.7183;-62.2663" />
     <meta name="ICBM" content="-38.7183, -62.2663" />
-    <link rel="canonical" href="https://scnbb.vercel.app/" />
-    <link rel="icon" type="image/png" href="/favicon.png" />
-    <link rel="apple-touch-icon" href="/logo.png" />
-    <meta name="theme-color" content="#6622CF" />
+    <link rel="canonical" href="https://somos-scn.com.ar/" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Fuentes sin bloquear el primer render (display=swap + carga async) -->
+    <link
+      rel="preload"
+      as="style"
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Sora:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      onload="this.onload=null;this.rel='stylesheet'"
+    />
+    <noscript>
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Sora:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      />
+    </noscript>
+    <link rel="icon" type="image/png" sizes="64x64" href="/favicon.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="theme-color" content="#F7F5FB" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0B0A10" media="(prefers-color-scheme: dark)" />
+    <script>
+      // Aplica el tema antes del primer pintado (evita el flash claro → oscuro).
+      (function () {
+        try {
+          var t = localStorage.getItem('theme');
+          var dark = t ? t === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+          if (dark) document.documentElement.classList.add('dark');
+        } catch (e) {}
+      })();
+    </script>
+    <meta name="color-scheme" content="dark light" />
+    <meta name="format-detection" content="telephone=no" />
 
     <meta property="og:type" content="website" />
     <meta property="og:locale" content="es_AR" />
@@ -31,8 +60,8 @@
       property="og:description"
       content="Catálogo de tecnología y electrónica en Bahía Blanca. Asesoramiento humano y compra directa por WhatsApp."
     />
-    <meta property="og:url" content="https://scnbb.vercel.app/" />
-    <meta property="og:image" content="https://scnbb.vercel.app/og.jpg?v=3" />
+    <meta property="og:url" content="https://somos-scn.com.ar/" />
+    <meta property="og:image" content="https://somos-scn.com.ar/og.jpg?v=3" />
     <meta property="og:image:type" content="image/jpeg" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
@@ -44,7 +73,7 @@
       name="twitter:description"
       content="Catálogo de tecnología y electrónica en Bahía Blanca. Compra por WhatsApp."
     />
-    <meta name="twitter:image" content="https://scnbb.vercel.app/og.jpg?v=3" />
+    <meta name="twitter:image" content="https://somos-scn.com.ar/og.jpg?v=3" />
 
     <script type="application/ld+json">
       {
@@ -53,11 +82,11 @@
         "name": "SCN — Seamos como niños",
         "alternateName": "SCN",
         "description": "Catálogo de tecnología y electrónica en Bahía Blanca con venta y asesoramiento por WhatsApp.",
-        "url": "https://scnbb.vercel.app/",
-        "image": "https://scnbb.vercel.app/og.jpg?v=3",
-        "logo": "https://scnbb.vercel.app/logo.png",
+        "url": "https://somos-scn.com.ar/",
+        "image": "https://somos-scn.com.ar/og.jpg?v=3",
+        "logo": "https://somos-scn.com.ar/logo.png",
         "telephone": "+5492915224734",
-        "email": "contacto@seamoscomoninos.com",
+        "email": "sercomoninios1324@gmail.com",
         "address": {
           "@type": "PostalAddress",
           "addressLocality": "Bahía Blanca",
@@ -73,7 +102,8 @@
           "@type": "City",
           "name": "Bahía Blanca"
         },
-        "sameAs": ["https://instagram.com/seamoscomoninos"],
+        "sameAs": ["https://instagram.com/somos_scn"],
+
         "priceRange": "$$"
       }
     </script>

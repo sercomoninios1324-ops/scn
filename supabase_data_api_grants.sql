@@ -29,6 +29,9 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.admins TO service_role;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.orders TO authenticated, service_role;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.order_items TO authenticated, service_role;
 
+-- Pedidos WhatsApp (/pedido/CODE): solo la API con service role
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.cart_shares TO service_role;
+
 -- Sequences (ids autogenerados)
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;
 

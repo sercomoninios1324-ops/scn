@@ -4,6 +4,13 @@ import fs from 'fs';
 import dotenv from 'dotenv';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { INITIAL_DB, type DbSchema } from './seed-data';
+import { registerImageProxy } from './imageProxy';
+import {
+  encodeProductWebp,
+  isAllowedUploadMime,
+  newProductImageName,
+  sanitizeProductImages,
+} from './imageProcess';
 
 dotenv.config();
 
@@ -126,7 +133,7 @@ async function requireAdmin(req: Request, res: Response, next: NextFunction) {
   }
 
   if (!supabase && !supabaseAnon) {
-    if (token === DEV_ADMIN_TOKEN) {
+    if (!isProduction() && token === DEV_ADMIN_TOKEN) {
       (req as Request & { adminUser?: { email: string; name: string } }).adminUser = {
         email: process.env.ADMIN_EMAIL || 'admin@scn.com',
         name: 'Administrador SCN',
@@ -167,8 +174,14 @@ async function requireAdmin(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
+// Se evalúa en cada uso: server/prod.ts setea NODE_ENV después de importar este módulo.
+const isProduction = () => !!process.env.VERCEL || process.env.NODE_ENV === 'production';
+
 function handleSupabaseError(err: any, contextMsg: string) {
   console.error(`Error de Supabase en ${contextMsg}:`, err.message || err);
+  // En producción nunca caemos a db.json: un corte transitorio no debe servir el seed local
+  // ni escribir datos que se pierden. La siguiente request vuelve a intentar con Supabase.
+  if (isProduction()) return;
   const errMsg = String(err.message || err).toLowerCase();
   if (
     errMsg.includes('fetch failed') || 
@@ -190,6 +203,8 @@ const ALLOWED_ORIGINS = new Set(
   [
     process.env.SITE_URL,
     process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '',
+    'https://somos-scn.com.ar',
+    'https://www.somos-scn.com.ar',
     'http://localhost:3000',
     'http://localhost:5173',
     'http://127.0.0.1:3000',
@@ -225,6 +240,21 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
+/**
+ * Caché en el CDN de Vercel para lecturas públicas del catálogo.
+ * s-maxage corto: un cambio del admin se ve en ≤60 s; stale-while-revalidate evita esperas.
+ * Rutas admin / pedidos: nunca cachear.
+ */
+const PUBLIC_CACHEABLE = /^\/(api\/(products(\/[^/]+)?|categories|settings|sitemap\.xml)|sitemap\.xml)$/;
+app.use((req: Request, res: Response, next: NextFunction) => {
+  if (req.method === 'GET' && PUBLIC_CACHEABLE.test(req.path) && !req.headers.authorization) {
+    res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=60, stale-while-revalidate=600');
+  } else if (req.path.startsWith('/api/') && !req.path.startsWith('/api/img')) {
+    res.setHeader('Cache-Control', 'no-store');
+  }
+  next();
+});
+
 const DATA_DIR = path.join(process.cwd(), 'data');
 const DB_FILE = path.join(DATA_DIR, 'db.json');
 const UPLOADS_DIR = path.join(process.cwd(), 'uploads');
@@ -245,6 +275,15 @@ try {
 }
 
 app.use('/uploads', express.static(UPLOADS_DIR));
+registerImageProxy(app, UPLOADS_DIR);
+
+/** Precio anterior opcional; null si vacío / 0 / inválido. */
+function normalizeCompareAtPrice(value: unknown): number | null {
+  if (value === undefined || value === null || value === '') return null;
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return n;
+}
 
 function generateSlug(text: string): string {
   return text
@@ -363,8 +402,8 @@ app.get('/api/settings', async (req, res) => {
           const defaultSettings = {
             id: 1,
             whatsapp_number: '2915224734',
-            instagram_url: 'https://instagram.com/seamoscomoninos',
-            email: 'contacto@seamoscomoninos.com',
+            instagram_url: 'https://instagram.com/somos_scn',
+            email: 'sercomoninios1324@gmail.com',
             hero_title: 'SCN — Seamos como niños',
             hero_subtitle: 'Catálogo de tecnología en Bahía Blanca. Celulares, notebooks y accesorios con asesoría personalizada por WhatsApp.'
           };
@@ -381,6 +420,7 @@ app.get('/api/settings', async (req, res) => {
       return res.json(data);
     } catch (err: any) {
       handleSupabaseError(err, 'GET /api/settings');
+      if (isProduction()) return res.status(503).json({ error: 'Catálogo no disponible, reintentá en unos segundos' });
       const db = readDB();
       return res.json(db.site_settings);
     }
@@ -451,6 +491,7 @@ app.get('/api/categories', async (req, res) => {
       return res.json(data);
     } catch (err: any) {
       handleSupabaseError(err, 'GET /api/categories');
+      if (isProduction()) return res.status(503).json({ error: 'Catálogo no disponible, reintentá en unos segundos' });
       const db = readDB();
       return res.json(db.categories);
     }
@@ -520,6 +561,87 @@ app.post('/api/categories', requireAdmin, async (req, res) => {
   }
 });
 
+/** Renombrar categoría (el slug se regenera; las fichas no cambian de URL). */
+app.put('/api/categories/:id', requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  const name = String(req.body?.name || '').trim();
+  if (!name) return res.status(400).json({ error: 'El nombre es obligatorio' });
+  const slug = generateSlug(name);
+  if (!slug) return res.status(400).json({ error: 'Nombre inválido' });
+
+  try {
+    if (supabase) {
+      const { data: dup } = await supabase
+        .from('categories')
+        .select('id')
+        .eq('slug', slug)
+        .neq('id', id)
+        .maybeSingle();
+      if (dup) return res.status(400).json({ error: 'Ya existe otra categoría con ese nombre' });
+      const { data, error } = await supabase
+        .from('categories')
+        .update({ name, slug })
+        .eq('id', id)
+        .select()
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) return res.status(404).json({ error: 'Categoría no encontrada' });
+      return res.json(data);
+    }
+    const db = readDB();
+    const cat = db.categories.find((c) => c.id === id);
+    if (!cat) return res.status(404).json({ error: 'Categoría no encontrada' });
+    if (db.categories.some((c) => c.id !== id && c.slug === slug)) {
+      return res.status(400).json({ error: 'Ya existe otra categoría con ese nombre' });
+    }
+    cat.name = name;
+    cat.slug = slug;
+    writeDB(db);
+    return res.json(cat);
+  } catch (err: any) {
+    handleSupabaseError(err, 'PUT /api/categories/:id');
+    return res.status(500).json({ error: err.message || 'No se pudo renombrar la categoría' });
+  }
+});
+
+/** Borrar categoría: solo si ningún producto (no eliminado) la usa. */
+app.delete('/api/categories/:id', requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  try {
+    if (supabase) {
+      const { count, error: countErr } = await supabase
+        .from('products')
+        .select('id', { count: 'exact', head: true })
+        .eq('category_id', id)
+        .is('deleted_at', null);
+      if (countErr) throw countErr;
+      if (count && count > 0) {
+        return res.status(400).json({
+          error: `No se puede borrar: ${count} producto(s) usan esta categoría. Movelos a otra primero.`,
+        });
+      }
+      const { error } = await supabase.from('categories').delete().eq('id', id);
+      if (error) throw error;
+      return res.json({ success: true });
+    }
+    const db = readDB();
+    const inUse = db.products.filter((p) => p.category_id === id && p.deleted_at === null).length;
+    if (inUse > 0) {
+      return res.status(400).json({
+        error: `No se puede borrar: ${inUse} producto(s) usan esta categoría. Movelos a otra primero.`,
+      });
+    }
+    const before = db.categories.length;
+    db.categories = db.categories.filter((c) => c.id !== id);
+    if (db.categories.length === before) return res.status(404).json({ error: 'Categoría no encontrada' });
+    writeDB(db);
+    return res.json({ success: true });
+  } catch (err: any) {
+    handleSupabaseError(err, 'DELETE /api/categories/:id');
+    return res.status(500).json({ error: err.message || 'No se pudo borrar la categoría' });
+  }
+});
+
 app.get('/api/products', async (req, res) => {
   if (supabase) {
     try {
@@ -546,6 +668,7 @@ app.get('/api/products', async (req, res) => {
       return res.json(enrichedProducts);
     } catch (err: any) {
       handleSupabaseError(err, 'GET /api/products');
+      if (isProduction()) return res.status(503).json({ error: 'Catálogo no disponible, reintentá en unos segundos' });
       const db = readDB();
       const activeProducts = db.products.filter((p) => p.is_active && p.deleted_at === null);
       const enriched = activeProducts.map((product) => {
@@ -692,8 +815,10 @@ app.post('/api/products', requireAdmin, async (req, res) => {
     short_description,
     description,
     price,
+    compare_at_price,
     category_id,
     is_featured,
+    is_push,
     is_active,
     sku,
     stock,
@@ -705,7 +830,14 @@ app.post('/api/products', requireAdmin, async (req, res) => {
     return res.status(400).json({ error: 'Faltan campos obligatorios (nombre, precio, categoría)' });
   }
 
+  const compareAt = normalizeCompareAtPrice(compare_at_price);
   const slug = generateSlug(name);
+  const safeImages = sanitizeProductImages(images);
+  if (Array.isArray(images) && images.length > 0 && safeImages.length === 0) {
+    return res.status(400).json({
+      error: 'Las imágenes deben ser del storage de SCN (/uploads o bucket product-images)',
+    });
+  }
 
   if (supabase) {
     try {
@@ -730,10 +862,12 @@ app.post('/api/products', requireAdmin, async (req, res) => {
           short_description: short_description || '',
           description: description || '',
           price: Number(price),
+          compare_at_price: compareAt,
           currency: 'ARS',
           includes: Array.isArray(includes) ? includes : [],
           category_id,
           is_featured: !!is_featured,
+          is_push: !!is_push,
           is_active: is_active !== undefined ? !!is_active : true,
           sku: generatedSku,
           stock: stock !== undefined ? Number(stock) : 0,
@@ -744,10 +878,13 @@ app.post('/api/products', requireAdmin, async (req, res) => {
       if (productError) throw productError;
 
       const productId = newProduct.id;
+      if (is_push) {
+        await supabase.from('products').update({ is_push: false }).neq('id', productId);
+      }
       const imagesToInsert: any[] = [];
 
-      if (Array.isArray(images) && images.length > 0) {
-        images.forEach((img, index) => {
+      if (safeImages.length > 0) {
+        safeImages.forEach((img, index) => {
           imagesToInsert.push({
             product_id: productId,
             storage_path: img.storage_path,
@@ -755,21 +892,17 @@ app.post('/api/products', requireAdmin, async (req, res) => {
             is_cover: !!img.is_cover
           });
         });
-      } else {
-        imagesToInsert.push({
-          product_id: productId,
-          storage_path: 'https://images.unsplash.com/photo-1526738549149-8e07eca6c147?auto=format&fit=crop&w=800&q=80',
-          position: 1,
-          is_cover: true
-        });
       }
 
-      const { data: insertedImages, error: imagesError } = await supabase
-        .from('product_images')
-        .insert(imagesToInsert)
-        .select();
-
-      if (imagesError) throw imagesError;
+      let insertedImages: any[] = [];
+      if (imagesToInsert.length) {
+        const { data, error: imagesError } = await supabase
+          .from('product_images')
+          .insert(imagesToInsert)
+          .select();
+        if (imagesError) throw imagesError;
+        insertedImages = data || [];
+      }
 
       return res.status(201).json({
         ...newProduct,
@@ -787,10 +920,13 @@ app.post('/api/products', requireAdmin, async (req, res) => {
           id: productId, name, slug,
           short_description: short_description || '',
           description: description || '',
-          price: Number(price), currency: 'ARS',
+          price: Number(price),
+          compare_at_price: compareAt,
+          currency: 'ARS',
           includes: Array.isArray(includes) ? includes : [],
           category_id,
           is_featured: !!is_featured,
+          is_push: !!is_push,
           is_active: is_active !== undefined ? !!is_active : true,
           sku: sku || 'SKU-' + Math.floor(Math.random() * 1000000),
           stock: stock !== undefined ? Number(stock) : 0,
@@ -798,25 +934,17 @@ app.post('/api/products', requireAdmin, async (req, res) => {
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         };
+        if (is_push) db.products.forEach((p) => { if (p.id !== productId) (p as any).is_push = false; });
         db.products.push(newProduct);
-        if (Array.isArray(images) && images.length > 0) {
-          images.forEach((img, index) => {
-            db.product_images.push({
-              id: 'img' + Math.random().toString(36).slice(2, 11),
-              product_id: productId,
-              storage_path: img.storage_path,
-              position: img.position !== undefined ? Number(img.position) : index + 1,
-              is_cover: !!img.is_cover
-            });
-          });
-        } else {
+        safeImages.forEach((img, index) => {
           db.product_images.push({
             id: 'img' + Math.random().toString(36).slice(2, 11),
             product_id: productId,
-            storage_path: 'https://images.unsplash.com/photo-1526738549149-8e07eca6c147?auto=format&fit=crop&w=800&q=80',
-            position: 1, is_cover: true
+            storage_path: img.storage_path,
+            position: img.position !== undefined ? Number(img.position) : index + 1,
+            is_cover: !!img.is_cover
           });
-        }
+        });
         writeDB(db);
         return res.status(201).json({ ...newProduct, images: db.product_images.filter(img => img.product_id === productId) });
       }
@@ -835,10 +963,12 @@ app.post('/api/products', requireAdmin, async (req, res) => {
       short_description: short_description || '',
       description: description || '',
       price: Number(price),
+      compare_at_price: compareAt,
       currency: 'ARS',
       includes: Array.isArray(includes) ? includes : [],
       category_id,
       is_featured: !!is_featured,
+      is_push: !!is_push,
       is_active: is_active !== undefined ? !!is_active : true,
       sku: sku || 'SKU-' + Math.floor(Math.random() * 1000000),
       stock: stock !== undefined ? Number(stock) : 0,
@@ -847,27 +977,18 @@ app.post('/api/products', requireAdmin, async (req, res) => {
       updated_at: new Date().toISOString()
     };
 
+    if (is_push) db.products.forEach((p) => { (p as any).is_push = false; });
     db.products.push(newProduct);
 
-    if (Array.isArray(images) && images.length > 0) {
-      images.forEach((img, index) => {
-        db.product_images.push({
-          id: 'img' + Math.random().toString(36).slice(2, 11),
-          product_id: productId,
-          storage_path: img.storage_path,
-          position: img.position !== undefined ? Number(img.position) : index + 1,
-          is_cover: !!img.is_cover
-        });
-      });
-    } else {
+    safeImages.forEach((img, index) => {
       db.product_images.push({
         id: 'img' + Math.random().toString(36).slice(2, 11),
         product_id: productId,
-        storage_path: 'https://images.unsplash.com/photo-1526738549149-8e07eca6c147?auto=format&fit=crop&w=800&q=80',
-        position: 1,
-        is_cover: true
+        storage_path: img.storage_path,
+        position: img.position !== undefined ? Number(img.position) : index + 1,
+        is_cover: !!img.is_cover
       });
-    }
+    });
 
     writeDB(db);
     res.status(201).json({
@@ -884,14 +1005,25 @@ app.put('/api/products/:id', requireAdmin, async (req, res) => {
     short_description,
     description,
     price,
+    compare_at_price,
     category_id,
     is_featured,
+    is_push,
     is_active,
     sku,
     stock,
     includes,
     images // Array of { id, storage_path, is_cover, position }
   } = req.body;
+
+  if (images !== undefined && Array.isArray(images) && images.length > 0) {
+    const preview = sanitizeProductImages(images);
+    if (preview.length === 0) {
+      return res.status(400).json({
+        error: 'Las imágenes deben ser del storage de SCN (/uploads o bucket product-images)',
+      });
+    }
+  }
 
   if (supabase) {
     try {
@@ -929,12 +1061,18 @@ app.put('/api/products/:id', requireAdmin, async (req, res) => {
       if (short_description !== undefined) updateData.short_description = short_description;
       if (description !== undefined) updateData.description = description;
       if (price !== undefined) updateData.price = Number(price);
+      if (compare_at_price !== undefined) updateData.compare_at_price = normalizeCompareAtPrice(compare_at_price);
       if (category_id !== undefined) updateData.category_id = category_id;
       if (is_featured !== undefined) updateData.is_featured = !!is_featured;
+      if (is_push !== undefined) updateData.is_push = !!is_push;
       if (is_active !== undefined) updateData.is_active = !!is_active;
       if (sku !== undefined) updateData.sku = sku;
       if (stock !== undefined) updateData.stock = Number(stock);
       if (includes !== undefined) updateData.includes = Array.isArray(includes) ? includes : currentProduct.includes;
+
+      if (is_push) {
+        await supabase.from('products').update({ is_push: false }).neq('id', productId);
+      }
 
       const { data: updatedProduct, error: updateError } = await supabase
         .from('products')
@@ -946,6 +1084,7 @@ app.put('/api/products/:id', requireAdmin, async (req, res) => {
       if (updateError) throw updateError;
 
       if (images !== undefined) {
+        const safeImages = sanitizeProductImages(images);
         const { error: deleteImagesError } = await supabase
           .from('product_images')
           .delete()
@@ -953,8 +1092,8 @@ app.put('/api/products/:id', requireAdmin, async (req, res) => {
 
         if (deleteImagesError) throw deleteImagesError;
 
-        if (Array.isArray(images) && images.length > 0) {
-          const imagesToInsert = images.map((img, index) => ({
+        if (safeImages.length > 0) {
+          const imagesToInsert = safeImages.map((img, index) => ({
             product_id: productId,
             storage_path: img.storage_path,
             position: img.position !== undefined ? Number(img.position) : index + 1,
@@ -998,26 +1137,35 @@ app.put('/api/products/:id', requireAdmin, async (req, res) => {
           short_description: short_description !== undefined ? short_description : currentProduct.short_description,
           description: description !== undefined ? description : currentProduct.description,
           price: price !== undefined ? Number(price) : currentProduct.price,
+          compare_at_price:
+            compare_at_price !== undefined
+              ? normalizeCompareAtPrice(compare_at_price)
+              : (currentProduct as { compare_at_price?: number | null }).compare_at_price ?? null,
           category_id: category_id || currentProduct.category_id,
           is_featured: is_featured !== undefined ? !!is_featured : currentProduct.is_featured,
+          is_push: is_push !== undefined ? !!is_push : !!(currentProduct as any).is_push,
           is_active: is_active !== undefined ? !!is_active : currentProduct.is_active,
           sku: sku !== undefined ? sku : currentProduct.sku,
           stock: stock !== undefined ? Number(stock) : currentProduct.stock,
           includes: Array.isArray(includes) ? includes : currentProduct.includes,
           updated_at: new Date().toISOString()
         };
+        if (is_push) {
+          db.products.forEach((p, i) => {
+            if (i !== productIndex) (p as any).is_push = false;
+          });
+        }
         if (images !== undefined) {
+          const safeImages = sanitizeProductImages(images);
           db.product_images = db.product_images.filter(img => img.product_id !== productId);
-          if (Array.isArray(images)) {
-            images.forEach((img, index) => {
-              db.product_images.push({
-                id: img.id || 'img' + Math.random().toString(36).slice(2, 11),
-                product_id: productId, storage_path: img.storage_path,
-                position: img.position !== undefined ? Number(img.position) : index + 1,
-                is_cover: !!img.is_cover
-              });
+          safeImages.forEach((img, index) => {
+            db.product_images.push({
+              id: img.id || 'img' + Math.random().toString(36).slice(2, 11),
+              product_id: productId, storage_path: img.storage_path,
+              position: img.position !== undefined ? Number(img.position) : index + 1,
+              is_cover: !!img.is_cover
             });
-          }
+          });
         }
         writeDB(db);
         return res.json({ ...db.products[productIndex], images: db.product_images.filter(img => img.product_id === productId) });
@@ -1040,6 +1188,12 @@ app.put('/api/products/:id', requireAdmin, async (req, res) => {
       }
     }
 
+    if (is_push) {
+      db.products.forEach((p, i) => {
+        if (i !== productIndex) (p as any).is_push = false;
+      });
+    }
+
     db.products[productIndex] = {
       ...currentProduct,
       name: name || currentProduct.name,
@@ -1047,8 +1201,13 @@ app.put('/api/products/:id', requireAdmin, async (req, res) => {
       short_description: short_description !== undefined ? short_description : currentProduct.short_description,
       description: description !== undefined ? description : currentProduct.description,
       price: price !== undefined ? Number(price) : currentProduct.price,
+      compare_at_price:
+        compare_at_price !== undefined
+          ? normalizeCompareAtPrice(compare_at_price)
+          : (currentProduct as { compare_at_price?: number | null }).compare_at_price ?? null,
       category_id: category_id || currentProduct.category_id,
       is_featured: is_featured !== undefined ? !!is_featured : currentProduct.is_featured,
+      is_push: is_push !== undefined ? !!is_push : !!(currentProduct as any).is_push,
       is_active: is_active !== undefined ? !!is_active : currentProduct.is_active,
       sku: sku !== undefined ? sku : currentProduct.sku,
       stock: stock !== undefined ? Number(stock) : currentProduct.stock,
@@ -1057,18 +1216,17 @@ app.put('/api/products/:id', requireAdmin, async (req, res) => {
     };
 
     if (images !== undefined) {
+      const safeImages = sanitizeProductImages(images);
       db.product_images = db.product_images.filter(img => img.product_id !== productId);
-      if (Array.isArray(images)) {
-        images.forEach((img, index) => {
-          db.product_images.push({
-            id: img.id || 'img' + Math.random().toString(36).slice(2, 11),
-            product_id: productId,
-            storage_path: img.storage_path,
-            position: img.position !== undefined ? Number(img.position) : index + 1,
-            is_cover: !!img.is_cover
-          });
+      safeImages.forEach((img, index) => {
+        db.product_images.push({
+          id: img.id || 'img' + Math.random().toString(36).slice(2, 11),
+          product_id: productId,
+          storage_path: img.storage_path,
+          position: img.position !== undefined ? Number(img.position) : index + 1,
+          is_cover: !!img.is_cover
         });
-      }
+      });
     }
 
     writeDB(db);
@@ -1126,6 +1284,9 @@ app.delete('/api/products/:id', requireAdmin, async (req, res) => {
 });
 
 app.post('/api/admin/dev-login', (req, res) => {
+  if (isProduction()) {
+    return res.status(404).json({ error: 'No disponible' });
+  }
   if (supabase) {
     return res.status(400).json({ error: 'Use Supabase Auth para iniciar sesión' });
   }
@@ -1149,31 +1310,44 @@ app.post('/api/admin/dev-login', (req, res) => {
 });
 
 app.post('/api/admin/upload', requireAdmin, async (req, res) => {
-  const { base64, fileName } = req.body;
-  if (!base64 || !fileName) {
-    return res.status(400).json({ error: 'Faltan parámetros de subida (base64, fileName)' });
+  const { base64 } = req.body;
+  if (!base64) {
+    return res.status(400).json({ error: 'Falta el archivo (base64)' });
   }
 
   try {
-    const matches = base64.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+    const matches = String(base64).match(/^data:([A-Za-z0-9.+\/+-]+);base64,(.+)$/);
     if (!matches || matches.length !== 3) {
       return res.status(400).json({ error: 'Formato base64 inválido' });
     }
 
-    const type = matches[1];
+    const declaredMime = matches[1].toLowerCase().split(';')[0].trim();
+    if (!isAllowedUploadMime(declaredMime)) {
+      return res.status(400).json({ error: 'Solo se permiten JPG, PNG, WebP o GIF' });
+    }
+
     const buffer = Buffer.from(matches[2], 'base64');
-    
-    const ext = path.extname(fileName) || '.jpg';
-    const uniqueName = 'prod_' + Date.now() + '_' + Math.floor(Math.random() * 1000) + ext;
+    if (!buffer.length || buffer.length > 8 * 1024 * 1024) {
+      return res.status(400).json({ error: 'La imagen supera el tamaño máximo (8 MB)' });
+    }
+
+    let webp: Buffer;
+    try {
+      webp = await encodeProductWebp(buffer);
+    } catch (err) {
+      return res.status(400).json({
+        error: err instanceof Error ? err.message : 'No se pudo procesar la imagen',
+      });
+    }
+
+    const uniqueName = newProductImageName();
 
     if (supabase) {
-      const { data, error } = await supabase.storage
-        .from('product-images')
-        .upload(uniqueName, buffer, {
-          contentType: type,
-          cacheControl: '3600',
-          upsert: false
-        });
+      const { error } = await supabase.storage.from('product-images').upload(uniqueName, webp, {
+        contentType: 'image/webp',
+        cacheControl: '31536000',
+        upsert: false,
+      });
 
       if (error) throw error;
 
@@ -1183,21 +1357,324 @@ app.post('/api/admin/upload', requireAdmin, async (req, res) => {
 
       return res.json({
         success: true,
-        url: publicUrlData.publicUrl
-      });
-    } else {
-      const savePath = path.join(UPLOADS_DIR, uniqueName);
-      fs.writeFileSync(savePath, buffer);
-      
-      return res.json({
-        success: true,
-        url: `/uploads/${uniqueName}`
+        url: publicUrlData.publicUrl,
       });
     }
-  } catch (err: any) {
+
+    const savePath = path.join(UPLOADS_DIR, uniqueName);
+    fs.writeFileSync(savePath, webp);
+
+    return res.json({
+      success: true,
+      url: `/uploads/${uniqueName}`,
+    });
+  } catch (err: unknown) {
     console.error('Upload Error:', err);
-    res.status(500).json({ error: 'Error procesando la subida de imagen: ' + err.message });
+    const message = err instanceof Error ? err.message : 'Error desconocido';
+    res.status(500).json({ error: 'Error procesando la subida de imagen: ' + message });
   }
+});
+
+/** Pedidos cortos para WhatsApp: código tipo 3DFEP30 → carrito. */
+type CartShareItem = { slug: string; qty: number; name?: string; price?: number };
+type CartShareRecord = {
+  code: string;
+  items: CartShareItem[];
+  created_at: string;
+  expires_at?: string;
+};
+
+const CART_SHARES_FILE = path.join(DATA_DIR, 'cart-shares.json');
+const CART_SHARE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const CART_SHARE_MAX_ITEMS = 40;
+const CART_SHARE_MAX_QTY = 99;
+const CART_SHARE_RATE_LIMIT = 20;
+const CART_SHARE_RATE_WINDOW_MS = 60_000;
+let memoryCartShares: Record<string, CartShareRecord> | null = null;
+const cartShareHits = new Map<string, number[]>();
+
+function clientIp(req: Request): string {
+  const xf = req.headers['x-forwarded-for'];
+  if (typeof xf === 'string' && xf.trim()) return xf.split(',')[0].trim();
+  return req.socket.remoteAddress || 'unknown';
+}
+
+function allowCartSharePost(ip: string): boolean {
+  const now = Date.now();
+  const prev = (cartShareHits.get(ip) || []).filter((t) => now - t < CART_SHARE_RATE_WINDOW_MS);
+  if (prev.length >= CART_SHARE_RATE_LIMIT) {
+    cartShareHits.set(ip, prev);
+    return false;
+  }
+  prev.push(now);
+  cartShareHits.set(ip, prev);
+  return true;
+}
+
+function readCartShares(): Record<string, CartShareRecord> {
+  if (memoryCartShares) return memoryCartShares;
+  try {
+    if (fs.existsSync(CART_SHARES_FILE)) {
+      memoryCartShares = JSON.parse(fs.readFileSync(CART_SHARES_FILE, 'utf-8')) as Record<
+        string,
+        CartShareRecord
+      >;
+      return memoryCartShares;
+    }
+  } catch (err) {
+    console.error('Error reading cart-shares:', err);
+  }
+  memoryCartShares = {};
+  return memoryCartShares;
+}
+
+function writeCartShares(data: Record<string, CartShareRecord>) {
+  memoryCartShares = data;
+  try {
+    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+    fs.writeFileSync(CART_SHARES_FILE, JSON.stringify(data, null, 2), 'utf-8');
+  } catch (err) {
+    console.error('Error writing cart-shares:', err);
+  }
+}
+
+function generateCartCode(existing?: Set<string> | Record<string, unknown>): string {
+  const alphabet = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ'; // sin 0/O/1/I
+  const taken =
+    existing instanceof Set
+      ? existing
+      : new Set(Object.keys(existing || {}));
+  for (let attempt = 0; attempt < 40; attempt++) {
+    let code = '';
+    for (let i = 0; i < 7; i++) {
+      code += alphabet[Math.floor(Math.random() * alphabet.length)];
+    }
+    if (!taken.has(code)) return code;
+  }
+  return `SCN${Date.now().toString(36).toUpperCase().slice(-5)}`;
+}
+
+function parseCartShareItems(rawItems: unknown): CartShareItem[] | { error: string } {
+  if (!Array.isArray(rawItems)) return { error: 'El carrito está vacío' };
+  if (rawItems.length > CART_SHARE_MAX_ITEMS) {
+    return { error: `Máximo ${CART_SHARE_MAX_ITEMS} ítems por pedido` };
+  }
+  const items: CartShareItem[] = rawItems
+    .map((row: unknown) => {
+      const r = row as Record<string, unknown>;
+      const slug = String(r.slug || '')
+        .trim()
+        .toLowerCase()
+        .slice(0, 120);
+      const qty = Math.min(Math.max(Number(r.qty) || 0, 0), CART_SHARE_MAX_QTY);
+      if (!slug || qty < 1) return null;
+      const name =
+        r.name != null ? String(r.name).trim().slice(0, 160) || undefined : undefined;
+      const price = Number.isFinite(Number(r.price)) ? Number(r.price) : undefined;
+      return { slug, qty, name, price };
+    })
+    .filter((x: CartShareItem | null): x is CartShareItem => x != null);
+
+  if (!items.length) return { error: 'El carrito está vacío' };
+  return items;
+}
+
+function isExpired(expiresAt?: string | null): boolean {
+  if (!expiresAt) return false;
+  return Date.now() > new Date(expiresAt).getTime();
+}
+
+app.post('/api/cart-shares', async (req, res) => {
+  try {
+    if (!allowCartSharePost(clientIp(req))) {
+      return res.status(429).json({ error: 'Demasiados pedidos. Probá de nuevo en un minuto.' });
+    }
+
+    const parsed = parseCartShareItems(req.body?.items);
+    if ('error' in parsed) {
+      return res.status(400).json({ error: parsed.error });
+    }
+    const items = parsed;
+    const created_at = new Date().toISOString();
+    const expires_at = new Date(Date.now() + CART_SHARE_TTL_MS).toISOString();
+
+    if (supabase) {
+      // Limpieza oportunista de pedidos vencidos (~1 de cada 20 altas): no requiere cron.
+      if (Math.random() < 0.05) {
+        void supabase
+          .from('cart_shares')
+          .delete()
+          .lt('expires_at', new Date().toISOString())
+          .then(({ error }) => {
+            if (error) console.warn('cart_shares cleanup:', error.message);
+          });
+      }
+      let code = generateCartCode();
+      for (let attempt = 0; attempt < 8; attempt++) {
+        const { error } = await supabase.from('cart_shares').insert({
+          code,
+          items,
+          created_at,
+          expires_at,
+        });
+        if (!error) {
+          return res.status(201).json({
+            code,
+            urlPath: `/pedido/${code}`,
+            items,
+            created_at,
+            expires_at,
+          });
+        }
+        if (error.code === '23505') {
+          code = generateCartCode();
+          continue;
+        }
+        throw error;
+      }
+      return res.status(500).json({ error: 'No se pudo crear el pedido' });
+    }
+
+    const store = readCartShares();
+    const code = generateCartCode(store);
+    const record: CartShareRecord = { code, items, created_at, expires_at };
+    store[code] = record;
+    writeCartShares(store);
+
+    return res.status(201).json({
+      code,
+      urlPath: `/pedido/${code}`,
+      items: record.items,
+      created_at: record.created_at,
+      expires_at: record.expires_at,
+    });
+  } catch (err) {
+    console.error('POST /api/cart-shares', err);
+    return res.status(500).json({ error: 'No se pudo crear el pedido' });
+  }
+});
+
+app.get('/api/cart-shares/:code', async (req, res) => {
+  try {
+    const code = String(req.params.code || '')
+      .trim()
+      .toUpperCase();
+    if (!/^[A-Z0-9]{5,16}$/.test(code)) {
+      return res.status(400).json({ error: 'Código inválido' });
+    }
+
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('cart_shares')
+        .select('code, items, created_at, expires_at')
+        .eq('code', code)
+        .maybeSingle();
+      if (error) throw error;
+      if (!data || isExpired(data.expires_at)) {
+        return res.status(404).json({ error: 'Pedido no encontrado' });
+      }
+      return res.json({
+        code: data.code,
+        items: data.items,
+        created_at: data.created_at,
+        expires_at: data.expires_at,
+      });
+    }
+
+    const store = readCartShares();
+    const record = store[code];
+    if (!record || isExpired(record.expires_at)) {
+      return res.status(404).json({ error: 'Pedido no encontrado' });
+    }
+    return res.json(record);
+  } catch (err) {
+    console.error('GET /api/cart-shares/:code', err);
+    return res.status(500).json({ error: 'No se pudo leer el pedido' });
+  }
+});
+
+const SITE_ORIGIN = (process.env.SITE_URL || 'https://somos-scn.com.ar').trim().replace(/\/$/, '');
+const STATIC_SITEMAP_PATHS: Array<{ path: string; changefreq: string; priority: string }> = [
+  { path: '/', changefreq: 'weekly', priority: '1.0' },
+  { path: '/catalogo', changefreq: 'daily', priority: '0.9' },
+  { path: '/como-comprar', changefreq: 'monthly', priority: '0.6' },
+  { path: '/nosotros', changefreq: 'monthly', priority: '0.5' },
+  { path: '/contacto', changefreq: 'monthly', priority: '0.5' },
+  { path: '/garantia', changefreq: 'yearly', priority: '0.3' },
+  { path: '/condiciones', changefreq: 'yearly', priority: '0.3' },
+  { path: '/privacidad', changefreq: 'yearly', priority: '0.3' },
+];
+
+function xmlEscape(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/** Sitemap con todas las fichas activas (Vercel reescribe /sitemap.xml → acá). */
+app.get(['/api/sitemap.xml', '/sitemap.xml'], async (_req, res) => {
+  let products: Array<{ slug: string; updated_at?: string | null }> = [];
+  try {
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('products')
+        .select('slug, updated_at')
+        .eq('is_active', true)
+        .is('deleted_at', null);
+      if (error) throw error;
+      products = data || [];
+    } else {
+      products = readDB()
+        .products.filter((p) => p.is_active && p.deleted_at === null)
+        .map((p) => ({ slug: p.slug, updated_at: (p as { updated_at?: string }).updated_at }));
+    }
+  } catch (err) {
+    console.error('GET /api/sitemap.xml', err);
+  }
+
+  const urls = [
+    ...STATIC_SITEMAP_PATHS.map(
+      (u) =>
+        `  <url><loc>${SITE_ORIGIN}${u.path}</loc><changefreq>${u.changefreq}</changefreq><priority>${u.priority}</priority></url>`
+    ),
+    ...products.map((p) => {
+      const lastmod = p.updated_at ? `<lastmod>${new Date(p.updated_at).toISOString().slice(0, 10)}</lastmod>` : '';
+      return `  <url><loc>${SITE_ORIGIN}/producto/${xmlEscape(encodeURIComponent(p.slug))}</loc>${lastmod}<changefreq>weekly</changefreq><priority>0.8</priority></url>`;
+    }),
+  ];
+
+  res
+    .type('application/xml')
+    .send(
+      [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+        ...urls,
+        '</urlset>',
+        '',
+      ].join('\n')
+    );
+});
+
+app.get(['/api/robots.txt', '/robots.txt'], (_req, res) => {
+  res.setHeader('Cache-Control', 'public, max-age=3600');
+  res
+    .type('text/plain')
+    .send(
+      [
+        'User-agent: *',
+        'Allow: /',
+        'Disallow: /personal',
+        'Disallow: /api/',
+        'Disallow: /pedido/',
+        'Disallow: /carrito',
+        '',
+        `Sitemap: ${SITE_ORIGIN}/sitemap.xml`,
+        '',
+      ].join('\n')
+    );
 });
 
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {

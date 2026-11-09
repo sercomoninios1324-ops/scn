@@ -367,3 +367,16 @@ insert into public.product_images (id, product_id, storage_path, position, is_co
 ('b1000000-0000-4000-8000-000000000007', 'a1000000-0000-4000-8000-000000000007', 'https://images.unsplash.com/photo-1609592424085-f5b225577239?auto=format&fit=crop&w=800&q=80', 1, true),
 ('b1000000-0000-4000-8000-000000000008', 'a1000000-0000-4000-8000-000000000008', 'https://images.unsplash.com/photo-1583863788434-e58a36330cf0?auto=format&fit=crop&w=800&q=80', 1, true)
 on conflict (id) do nothing;
+
+-- Producto de empuje en el hero (solo uno activo a la vez en la app)
+alter table public.products add column if not exists is_push boolean not null default false;
+
+-- Pedidos cortos WhatsApp (códigos /pedido/CODE) — durable entre instancias serverless
+create table if not exists public.cart_shares (
+    code text primary key,
+    items jsonb not null default '[]'::jsonb,
+    created_at timestamptz not null default now(),
+    expires_at timestamptz not null
+);
+create index if not exists cart_shares_expires_at_idx on public.cart_shares (expires_at);
+alter table public.cart_shares enable row level security;

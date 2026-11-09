@@ -4,17 +4,36 @@
   "outputDirectory": "dist",
   "functions": {
     "api/index.ts": {
-      "includeFiles": "api/bundle.cjs"
+      "includeFiles": "api/bundle.cjs",
+      "maxDuration": 30
     }
   },
+  "redirects": [
+    {
+      "source": "/:path(.*)",
+      "has": [{ "type": "host", "value": "www.somos-scn.com.ar" }],
+      "destination": "https://somos-scn.com.ar/:path",
+      "permanent": true
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",
       "headers": [
         { "key": "X-Content-Type-Options", "value": "nosniff" },
         { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
-        { "key": "X-Frame-Options", "value": "SAMEORIGIN" }
+        { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
+        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=(), interest-cohort=()" },
+        { "key": "Strict-Transport-Security", "value": "max-age=63072000" }
       ]
+    },
+    {
+      "source": "/assets/(.*)",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+    },
+    {
+      "source": "/(favicon.png|apple-touch-icon.png|icon-192.png|icon-512.png|logo.png|site.webmanifest)",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=604800" }]
     },
     {
       "source": "/og.jpg",
@@ -22,19 +41,19 @@
         { "key": "Cache-Control", "value": "public, max-age=3600, must-revalidate" },
         { "key": "Content-Type", "value": "image/jpeg" }
       ]
+    },
+    {
+      "source": "/index.html",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }]
     }
   ],
   "rewrites": [
+    { "source": "/sitemap.xml", "destination": "/api" },
+    { "source": "/robots.txt", "destination": "/api" },
+    { "source": "/api", "destination": "/api" },
+    { "source": "/api/(.*)", "destination": "/api" },
     {
-      "source": "/api",
-      "destination": "/api"
-    },
-    {
-      "source": "/api/(.*)",
-      "destination": "/api"
-    },
-    {
-      "source": "/((?!api/|og\\.jpg|og\\.png|favicon\\.png|logo\\.png|robots\\.txt|sitemap\\.xml|assets/).*)",
+      "source": "/((?!api/|assets/|og\\.jpg|og\\.png|favicon\\.png|logo\\.png|apple-touch-icon\\.png|icon-192\\.png|icon-512\\.png|site\\.webmanifest|robots\\.txt|sitemap\\.xml).*)",
       "destination": "/index.html"
     }
   ]

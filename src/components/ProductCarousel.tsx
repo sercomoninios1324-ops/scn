@@ -1,185 +1,93 @@
-import React, { useRef, useState, useEffect } from 'react';
-import { ChevronRight, Sparkles } from 'lucide-react';
-import { Product } from '../types';
+import { Link } from 'react-router-dom';
+import { ArrowRight } from 'lucide-react';
+import ProductCard, { type ProductCardProduct } from './ProductCard';
 
 interface ProductCarouselProps {
-  products: (Product & { images: { storage_path: string; is_cover: boolean }[]; category?: { name: string } })[];
-  onProductClick: (slug: string) => void;
+  products: ProductCardProduct[];
+  isLoading?: boolean;
 }
 
-export default function ProductCarousel({ products, onProductClick }: ProductCarouselProps) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const [activeDot, setActiveDot] = useState(0);
-  const [dotCount, setDotCount] = useState(1);
+function CatalogGlassCta({ className = '' }: { className?: string }) {
+  return (
+    <Link
+      to="/catalogo"
+      className={`scn-catalog-cta group inline-flex items-center justify-center gap-2 ${className}`}
+    >
+      <span className="relative z-[1]">Ver todo el catálogo</span>
+      <ArrowRight size={16} strokeWidth={2.25} className="relative z-[1] transition-transform group-hover:translate-x-0.5" />
+    </Link>
+  );
+}
 
-  const carouselProducts = products.filter((p) => p.is_active).slice(0, 8);
+/** Destacados en grilla responsive. */
+export default function ProductCarousel({ products, isLoading = false }: ProductCarouselProps) {
+  const gridProducts = products.filter((p) => p.is_active).slice(0, 8);
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('es-AR', {
-      style: 'currency',
-      currency: 'ARS',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(price);
-  };
-
-  const getPageCount = () => {
-    if (!scrollRef.current) return 1;
-    const { scrollWidth, clientWidth } = scrollRef.current;
-    const maxScroll = scrollWidth - clientWidth;
-    if (maxScroll <= 8) return 1;
-    const step = clientWidth * 0.85;
-    return Math.min(carouselProducts.length, Math.max(2, Math.ceil(maxScroll / step) + 1));
-  };
-
-  const checkScrollPosition = () => {
-    if (!scrollRef.current) return;
-    const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
-    const pages = getPageCount();
-    setDotCount(pages);
-    const maxScroll = Math.max(1, scrollWidth - clientWidth);
-    const index = Math.round((scrollLeft / maxScroll) * (pages - 1));
-    setActiveDot(Math.max(0, Math.min(index, pages - 1)));
-  };
-
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    el.addEventListener('scroll', checkScrollPosition, { passive: true });
-    checkScrollPosition();
-    window.addEventListener('resize', checkScrollPosition);
-    return () => {
-      el.removeEventListener('scroll', checkScrollPosition);
-      window.removeEventListener('resize', checkScrollPosition);
-    };
-  }, [products]);
-
-  const scrollToDot = (dotIndex: number) => {
-    if (!scrollRef.current) return;
-    const { scrollWidth, clientWidth } = scrollRef.current;
-    const pages = Math.max(1, dotCount);
-    const maxScroll = Math.max(0, scrollWidth - clientWidth);
-    const target = pages <= 1 ? 0 : (dotIndex / (pages - 1)) * maxScroll;
-    scrollRef.current.scrollTo({ left: target, behavior: 'smooth' });
-  };
-
-  if (carouselProducts.length === 0) {
+  if (isLoading) {
     return (
-      <div className="w-full glass rounded-3xl p-12 text-center flex flex-col items-center justify-center border border-scn-border/30">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-scn-primary"></div>
-        <p className="mt-4 text-scn-text-normal font-medium">Cargando productos destacados...</p>
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="glass rounded-3xl p-12 text-center">
+          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-t-2 border-b-2 border-scn-primary" />
+          <p className="mt-4 text-sm font-medium text-scn-text-normal">Cargando destacados...</p>
+        </div>
       </div>
     );
   }
 
-  return (
-    <div className="relative w-full py-6 md:py-10 select-none overflow-visible">
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[70vw] h-[300px] bg-scn-primary/5 rounded-full blur-[120px] pointer-events-none -z-10" />
-
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 mb-6 md:mb-8">
-        <div className="space-y-1.5">
-          <div className="inline-flex items-center space-x-1.5 rounded-full bg-scn-primary/10 px-2.5 py-0.5 text-2xs font-bold tracking-wider text-scn-primary uppercase">
-            <Sparkles size={11} className="animate-pulse" />
-            <span>Novedades & Destacados</span>
+  if (gridProducts.length === 0) {
+    return (
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="glass space-y-4 rounded-3xl p-10 text-center">
+          <p className="font-display text-lg font-bold text-scn-text-title">Todavía no hay destacados</p>
+          <p className="text-sm text-scn-text-normal">
+            Miralo el catálogo completo mientras cargamos novedades.
+          </p>
+          <div className="flex justify-center pt-1">
+            <CatalogGlassCta />
           </div>
-          <h2 className="font-display text-2xl sm:text-3xl font-extrabold text-scn-text-title tracking-tight">
-            Descubrí lo Último en Tecnología
+        </div>
+      </div>
+    );
+  }
+
+  const total = products.filter((p) => p.is_active).length;
+
+  return (
+    <div className="relative w-full py-6 md:py-10">
+      <div className="mx-auto mb-5 flex max-w-7xl items-end justify-between gap-4 px-4 sm:mb-8 sm:px-6 lg:px-8">
+        <div className="min-w-0">
+          <h2 className="font-display text-2xl font-extrabold tracking-tight text-scn-text-title sm:text-3xl">
+            Destacados
           </h2>
+          <p className="mt-1 text-sm text-scn-text-normal">Lo que más se está mirando ahora.</p>
         </div>
-      </div>
-
-      <div className="relative w-full overflow-visible px-4 sm:px-6 lg:px-8">
-        <div
-          ref={scrollRef}
-          className="flex gap-5 sm:gap-6 overflow-x-auto snap-x snap-mandatory scroll-smooth pb-8 pt-2 scrollbar-none"
-          style={{
-            scrollbarWidth: 'none',
-            msOverflowStyle: 'none',
-            WebkitOverflowScrolling: 'touch',
-          }}
+        <Link
+          to="/catalogo?featured=1"
+          className="group inline-flex shrink-0 items-center gap-1 rounded-lg py-2 text-sm font-semibold text-[#6622CF] transition-colors hover:text-[#7d3ae6] dark:text-[#b794f6] dark:hover:text-white"
         >
-          {carouselProducts.map((product) => {
-            const coverImg =
-              product.images.find((img) => img.is_cover)?.storage_path ||
-              product.images[0]?.storage_path;
-
-            return (
-              <div
-                key={product.id}
-                onClick={() => onProductClick(product.slug)}
-                className="group flex-none w-[270px] sm:w-[310px] md:w-[330px] snap-start rounded-[2rem] border border-scn-border/40 bg-scn-bg-card/45 backdrop-blur-md p-4 shadow-xs transition-all duration-300 hover:-translate-y-2 hover:shadow-lg hover:shadow-scn-primary/5 hover:border-scn-primary/30 glow-primary-hover cursor-pointer"
-              >
-                <div className="relative aspect-square w-full overflow-hidden rounded-2xl bg-scn-bg-section/60 border border-scn-border/30">
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10" />
-
-                  <img
-                    src={coverImg}
-                    alt={product.name}
-                    loading="lazy"
-                    className="h-full w-full object-cover object-center transition-transform duration-500 group-hover:scale-108"
-                  />
-
-                  {product.category && (
-                    <span className="absolute top-3 left-3 z-20 rounded-full bg-scn-bg-card/90 backdrop-blur-md px-2.5 py-0.5 text-2xs font-bold text-scn-primary uppercase tracking-wider border border-scn-primary/10">
-                      {product.category.name}
-                    </span>
-                  )}
-                  {product.stock <= 3 && product.stock > 0 && (
-                    <span className="absolute top-3 right-3 z-20 rounded-full bg-amber-500 px-2 py-0.5 text-2xs font-bold text-white tracking-wide shadow-md">
-                      ¡Últimos {product.stock}!
-                    </span>
-                  )}
-                </div>
-
-                <div className="flex flex-col justify-between pt-4 pb-1">
-                  <div className="space-y-1.5">
-                    <h3 className="font-display text-base font-bold text-scn-text-title line-clamp-2 leading-tight group-hover:text-scn-primary transition-colors">
-                      {product.name}
-                    </h3>
-                    <p className="text-xs text-scn-text-normal line-clamp-2 leading-relaxed">
-                      {product.short_description}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center justify-between pt-4 mt-3 border-t border-scn-border/40">
-                    <div className="flex flex-col">
-                      <span className="text-[10px] font-bold text-scn-text-secondary uppercase tracking-wider">
-                        Precio catálogo
-                      </span>
-                      <span className="font-mono text-base md:text-lg font-extrabold text-scn-primary mt-0.5">
-                        {formatPrice(product.price)}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-center h-9 w-9 rounded-xl bg-scn-primary/10 text-scn-primary group-hover:bg-scn-primary group-hover:text-white group-hover:scale-105 active:scale-95 transition-all duration-300">
-                      <ChevronRight size={16} />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+          Ver todos{total > gridProducts.length ? ` (${total})` : ''}
+          <ArrowRight size={16} strokeWidth={2.25} className="transition-transform group-hover:translate-x-0.5" />
+        </Link>
       </div>
 
-      {dotCount > 1 && (
-        <div className="flex items-center justify-center gap-2 mt-2">
-          {Array.from({ length: dotCount }).map((_, idx) => (
-            <button
-              key={idx}
-              type="button"
-              onClick={() => scrollToDot(idx)}
-              className={`h-2 w-2 rounded-full transition-colors duration-200 cursor-pointer ${
-                activeDot === idx
-                  ? 'bg-scn-primary'
-                  : 'bg-scn-border hover:bg-scn-primary/40'
-              }`}
-              aria-label={`Ir a la posición ${idx + 1}`}
-              aria-current={activeDot === idx ? 'true' : undefined}
-            />
-          ))}
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4 lg:gap-6">
+          {gridProducts.map((product, index) =>
+            // Celular/tablet: 6 tarjetas. PC: 8 (dos filas de 4).
+            index >= 6 ? (
+              <div key={product.id} className="hidden lg:block">
+                <ProductCard product={product} layout="grid" featured />
+              </div>
+            ) : (
+              <ProductCard key={product.id} product={product} layout="grid" featured />
+            )
+          )}
         </div>
-      )}
+
+        <div className="mt-8 flex justify-center sm:mt-10">
+          <CatalogGlassCta className="w-full sm:w-auto sm:min-w-[260px]" />
+        </div>
+      </div>
     </div>
   );
 }

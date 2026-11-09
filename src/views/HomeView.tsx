@@ -1,181 +1,254 @@
-
-
-import React from 'react';
-import { ArrowRight, HelpCircle, ShieldCheck, Sparkles, Truck, Zap } from 'lucide-react';
-import { Product, SiteSettings } from '../types';
+import { lazy, Suspense, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { ArrowRight, ChevronDown, ShieldCheck, Truck, MessageCircle } from 'lucide-react';
+import { m as motion } from 'motion/react';
 import ProductCarousel from '../components/ProductCarousel';
+import VioletAurora from '../components/effects/VioletAurora';
 
-interface HomeViewProps {
-  products: (Product & { images: { storage_path: string; is_cover: boolean }[]; category?: { name: string } })[];
-  settings: SiteSettings;
-  setCurrentPage: (page: string) => void;
-  setSelectedProductSlug: (slug: string) => void;
-}
+import HeroPushCard from '../components/HeroPushCard';
+import { useCatalog, type CatalogProduct } from '../context/CatalogContext';
+import { useIsDark } from '../hooks/useIsDark';
+import { usePageMeta } from '../hooks/usePageMeta';
+import { useReducedMotion } from '../hooks/useReducedMotion';
+import { productCover, resolvePushProduct } from '../lib/dailyPush';
+import { localBusinessJsonLd } from '../lib/seo';
+import logoSrc from '../assets/scn-logo-alpha.png';
 
-export default function HomeView({ products, settings, setCurrentPage, setSelectedProductSlug }: HomeViewProps) {
-  
-  const handleProductClick = (slug: string) => {
-    setSelectedProductSlug(slug);
-    setCurrentPage('product_detail');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+// WebGL (ogl): se baja aparte para no frenar el primer render.
+const ElectricLogo = lazy(() => import('../components/ElectricLogo'));
+
+export default function HomeView() {
+  const { products, settings, isLoading } = useCatalog();
+  const reducedMotion = useReducedMotion();
+  const isDark = useIsDark();
+  const [pushProduct, setPushProduct] = useState<CatalogProduct | null>(null);
+  const [wideHero, setWideHero] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(min-width: 480px)').matches
+  );
+
+  const heroTitle = 'SEAMOS COMO NIÑOS';
+  const heroClaim =
+    settings.hero_subtitle ||
+    'Tu catálogo de tecnología favorito. Los mejores dispositivos y accesorios electrónicos, listos para tu hogar o regalo, con asesoría personalizada directa por WhatsApp.';
+
+  const scrollToDestacados = () => {
+    document.getElementById('destacados')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
+  usePageMeta({
+    title: 'SCN — Seamos como niños | Tecnología en Bahía Blanca',
+    description:
+      'Catálogo de tecnología y electrónica en Bahía Blanca. Celulares, notebooks, auriculares y accesorios con asesoramiento por WhatsApp.',
+    path: '/',
+    jsonLd: localBusinessJsonLd(),
+  });
+
+  useEffect(() => {
+    if (!products.length) {
+      setPushProduct(null);
+      return;
+    }
+    setPushProduct(resolvePushProduct(products));
+  }, [products]);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 480px)');
+    const sync = () => setWideHero(mq.matches);
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, []);
+
+  const featured = products.filter((p) => p.is_featured && p.is_active);
+  const pushCover = productCover(pushProduct);
+  const showProduct = !!pushProduct && !!pushCover;
+
+  const formatPrice = (price: number) =>
+    new Intl.NumberFormat('es-AR', {
+      style: 'currency',
+      currency: 'ARS',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(price);
+
   return (
-    <div id="home-view" className="page-enter space-y-16 md:space-y-24 pb-16">
-      
-      
-      <section id="top-carousel-section" className="reveal-item">
-        <ProductCarousel 
-          products={products} 
-          onProductClick={handleProductClick} 
-        />
-      </section>
+    <div>
+      <section className="relative h-[100svh] min-h-[560px] max-h-[1100px] overflow-hidden -mt-16 pt-16">
+        <VioletAurora />
 
-      
-      <section id="hero-section" className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 relative overflow-visible reveal-item [animation-delay:200ms]">
-        
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[70vw] h-[250px] bg-scn-primary/5 rounded-full blur-[100px] pointer-events-none -z-10 animate-glow-pulse" />
-        
-        <div className="relative glass p-8 sm:p-12 md:p-16 rounded-[2.5rem] border border-scn-border/40 overflow-hidden flex flex-col items-center justify-center text-center glow-primary">
-          
-          <div className="absolute inset-0 bg-gradient-to-br from-scn-primary/5 to-transparent pointer-events-none" />
-          
-          <div className="relative z-10 text-center space-y-6 max-w-3xl mx-auto">
-            
-            <div id="badge-hero" className="inline-flex items-center space-x-1.5 rounded-full bg-scn-primary/10 px-3.5 py-1 text-xs font-semibold tracking-wide text-scn-primary">
-              <Sparkles size={13} className="animate-pulse" />
-              <span>TECNOLOGÍA CON ALMA</span>
-            </div>
-
-            
-            <h1 id="hero-title" className="font-display text-4xl sm:text-5xl md:text-6xl font-extrabold text-scn-text-title tracking-tight leading-none">
-              {settings.hero_title || "SCN — Seamos como niños"}
-            </h1>
-            <p id="hero-subtitle" className="text-base sm:text-lg md:text-xl text-scn-text-normal leading-relaxed max-w-2xl mx-auto">
-              {settings.hero_subtitle || "Catálogo de tecnología en Bahía Blanca. Celulares, notebooks y accesorios con asesoría personalizada por WhatsApp."}
-            </p>
-
-            
-            <div id="hero-ctas" className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-              <button
-                id="hero-cta-catalog"
-                onClick={() => setCurrentPage('products')}
-                className="w-full sm:w-auto flex items-center justify-center space-x-2 rounded-xl bg-scn-primary px-6 py-3.5 font-sans text-base font-semibold text-white shadow-lg shadow-scn-primary/25 transition-all hover:bg-scn-hover hover:scale-105 active:scale-95 cursor-pointer"
-              >
-                <span>Explorar Catálogo</span>
-                <ArrowRight size={18} />
-              </button>
-              
-              <button
-                id="hero-cta-guide"
-                onClick={() => setCurrentPage('guide')}
-                className="w-full sm:w-auto flex items-center justify-center space-x-2 rounded-xl border border-scn-border/40 bg-scn-bg-card/45 backdrop-blur-md px-6 py-3.5 font-sans text-base font-semibold text-scn-text-title transition-all hover:bg-scn-bg-section/60 hover:scale-105 active:scale-95 cursor-pointer"
-              >
-                <HelpCircle size={18} className="text-scn-primary" />
-                <span>¿Cómo comprar?</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      
-      <section id="why-choose-us" className="relative py-8 overflow-visible reveal-item [animation-delay:400ms]">
-        
-        <div className="absolute top-1/2 left-1/3 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-scn-primary/5 rounded-full blur-[120px] pointer-events-none -z-10" />
-
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-center space-y-12">
-          
-          <div className="space-y-2 max-w-2xl mx-auto">
-            <h2 className="font-display text-2xl sm:text-3xl font-extrabold text-scn-text-title tracking-tight">
-              ¿Por qué elegir SCN?
-            </h2>
-            <p className="text-sm text-scn-text-normal">
-              Nos enfocamos en brindar una experiencia de compra transparente, sin complicaciones y con trato 100% humano.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 text-left">
-            
-            
-            <div className="group rounded-[2rem] border border-scn-border/45 bg-scn-bg-card/45 backdrop-blur-md p-6 shadow-xs space-y-4 hover:-translate-y-1.5 hover:border-scn-primary/30 transition-all duration-300 glow-primary-hover">
-              <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-scn-primary/15 text-scn-primary transition-transform group-hover:scale-110 duration-300">
-                <ShieldCheck size={24} />
-              </div>
-              <h3 className="font-display text-base font-bold text-scn-text-title">
-                Garantía y Confianza
-              </h3>
-              <p className="text-xs text-scn-text-normal leading-relaxed">
-                Todos nuestros productos son rigurosamente chequeados e importados de forma legal. Te brindamos garantía real por cualquier falla.
-              </p>
-            </div>
-
-            
-            <div className="group rounded-[2rem] border border-scn-border/45 bg-scn-bg-card/45 backdrop-blur-md p-6 shadow-xs space-y-4 hover:-translate-y-1.5 hover:border-amber-500/30 transition-all duration-300">
-              <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/15 text-amber-500 transition-transform group-hover:scale-110 duration-300">
-                <Truck size={24} />
-              </div>
-              <h3 className="font-display text-base font-bold text-scn-text-title">
-                Envíos Coordinados
-              </h3>
-              <p className="text-xs text-scn-text-normal leading-relaxed">
-                Coordinamos el envío directo a tu domicilio o un punto de encuentro seguro que te quede súper cómodo en toda la zona.
-              </p>
-            </div>
-
-            
-            <div className="group rounded-[2rem] border border-scn-border/45 bg-scn-bg-card/45 backdrop-blur-md p-6 shadow-xs space-y-4 hover:-translate-y-1.5 hover:border-emerald-500/30 transition-all duration-300">
-              <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-500 transition-transform group-hover:scale-110 duration-300">
-                <Zap size={24} />
-              </div>
-              <h3 className="font-display text-base font-bold text-scn-text-title">
-                Asesoramiento Humano
-              </h3>
-              <p className="text-xs text-scn-text-normal leading-relaxed">
-                No hablás con un bot genérico. Te atendemos nosotros mismos por WhatsApp para sacarte cualquier duda y recomendarte lo mejor.
-              </p>
-            </div>
-
-            
-            <div className="group rounded-[2rem] border border-scn-border/45 bg-scn-bg-card/45 backdrop-blur-md p-6 shadow-xs space-y-4 hover:-translate-y-1.5 hover:border-rose-500/30 transition-all duration-300">
-              <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-rose-500/15 text-rose-500 transition-transform group-hover:scale-110 duration-300">
-                <HelpCircle size={24} />
-              </div>
-              <h3 className="font-display text-base font-bold text-scn-text-title">
-                Sencillo y Seguro
-              </h3>
-              <p className="text-xs text-scn-text-normal leading-relaxed">
-                Elegís lo que querés, tocás un botón para enviarnos un WhatsApp y coordinamos todo de palabra. Sin formularios infinitos ni sorpresas.
-              </p>
-            </div>
-
-          </div>
-
-        </div>
-      </section>
-
-      
-      <section id="cta-bottom" className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 relative overflow-visible reveal-item [animation-delay:500ms]">
-        
-        <div className="absolute top-1/2 right-1/4 w-[250px] h-[250px] bg-scn-primary/5 rounded-full blur-[90px] pointer-events-none -z-10" />
-
-        <div className="rounded-[2.5rem] border border-scn-border/45 bg-gradient-to-r from-scn-primary/10 via-scn-primary/5 to-transparent p-8 sm:p-12 text-center md:text-left flex flex-col md:flex-row items-center justify-between gap-8 backdrop-blur-sm glow-primary">
-          <div className="space-y-3 max-w-xl">
-            <h2 className="font-display text-2xl sm:text-3xl font-extrabold text-scn-text-title tracking-tight leading-none">
-              ¿Listo para renovar tu tecnología?
-            </h2>
-            <p className="text-sm text-scn-text-normal">
-              Explorá todos los productos disponibles en nuestro catálogo. Recordá que podés consultarnos sin compromiso.
-            </p>
-          </div>
-          <button
-            id="bottom-cta-catalog"
-            onClick={() => setCurrentPage('products')}
-            className="w-full md:w-auto flex items-center justify-center space-x-2 rounded-xl bg-scn-primary px-6 py-3.5 font-sans text-sm font-semibold text-white shadow-lg shadow-scn-primary/20 hover:bg-scn-hover hover:scale-105 active:scale-95 transition-all duration-300 cursor-pointer shrink-0"
+        <div className="relative z-10 mx-auto flex h-full w-full max-w-7xl flex-col px-4 pt-4 pb-12 sm:px-6 min-[480px]:flex-row min-[480px]:items-center min-[480px]:pt-0 min-[480px]:pb-0 lg:px-8">
+          <div
+            className={`relative z-10 flex w-full flex-col items-center text-center min-[480px]:items-start min-[480px]:text-left ${
+              showProduct
+                ? 'min-[480px]:max-w-[min(36rem,calc(100%-min(42vw,380px)-2rem))]'
+                : 'max-w-xl'
+            }`}
           >
-            <span>Ver Catálogo Completo</span>
-            <ArrowRight size={16} />
+            <div className="flex flex-col items-center gap-2 text-center min-[480px]:items-start min-[480px]:text-left sm:gap-4">
+              <div
+                className="relative h-[88px] w-[88px] sm:h-[150px] sm:w-[150px] min-[480px]:-ml-3 scn-electric-logo"
+                role="img"
+                aria-label="SCN"
+              >
+                {logoSrc ? (
+                  <img
+                    src={logoSrc}
+                    alt=""
+                    width={150}
+                    height={150}
+                    className="absolute inset-0 m-auto h-[48%] w-[48%] object-contain select-none opacity-100"
+                    draggable={false}
+                  />
+                ) : null}
+                {logoSrc ? (
+                  <Suspense fallback={null}>
+                  <ElectricLogo
+                    src={logoSrc}
+                    color={isDark ? '#e0c8ff' : '#6622CF'}
+                    glowColor={isDark ? '#8b5cf6' : '#9468D4'}
+                    scale={0.48}
+                    intensity={1.05}
+                    glow={0.7}
+                    thickness={1.35}
+                    strands={3}
+                    bend={0.55}
+                    crackle={1.4}
+                    arcs={0.95}
+                    flicker={0.5}
+                    fill={0}
+                    speed={2.4}
+                    interactive
+                    theme={isDark ? 'dark' : 'light'}
+                    className="absolute inset-0 h-full w-full"
+                  />
+                  </Suspense>
+                ) : null}
+              </div>
+              <h1 className="font-display text-[1.35rem] sm:text-3xl lg:text-[2.35rem] font-bold uppercase tracking-[0.1em] sm:tracking-[0.12em] leading-tight whitespace-nowrap text-scn-text-title dark:text-white">
+                {heroTitle}
+              </h1>
+            </div>
+
+            <div className="mt-2.5 flex w-full flex-col items-center gap-3 text-center min-[480px]:items-start min-[480px]:text-left sm:mt-6 sm:gap-5">
+              <p className="max-w-xl text-sm sm:text-base leading-relaxed tracking-wide text-scn-text-normal dark:text-white/85">
+                {heroClaim}
+              </p>
+
+              <div className="flex w-full max-w-sm flex-col gap-2 min-[480px]:max-w-none sm:flex-row sm:items-start sm:gap-3">
+                <Link
+                  to="/catalogo"
+                  className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl bg-[#6622CF] px-5 py-2.5 text-sm sm:px-6 sm:py-3.5 sm:text-base font-semibold text-white shadow-lg shadow-[#6622CF]/30 transition-transform hover:scale-[1.02] active:scale-[0.98]"
+                >
+                  Explorar catálogo
+                  <ArrowRight size={18} />
+                </Link>
+                <Link
+                  to="/como-comprar"
+                  className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl border border-scn-border/70 bg-white/55 px-5 py-2.5 text-sm sm:px-6 sm:py-3.5 sm:text-base font-semibold text-scn-text-title backdrop-blur-sm transition-colors hover:bg-white/80 dark:border-white/20 dark:bg-white/8 dark:text-white/95 dark:hover:bg-white/14"
+                >
+                  Cómo comprar
+                </Link>
+              </div>
+            </div>
+          </div>
+
+          {showProduct && pushProduct && pushCover && !wideHero ? (
+            <div className="flex min-h-0 flex-1 items-center justify-center">
+              <div className="w-full max-w-[340px]">
+                <HeroPushCard
+                  product={pushProduct}
+                  cover={pushCover}
+                  formatPrice={formatPrice}
+                  compact
+                />
+              </div>
+            </div>
+          ) : !wideHero ? (
+            <div className="flex-1" aria-hidden />
+          ) : null}
+
+          {showProduct && pushProduct && pushCover && wideHero ? (
+            <div className="pointer-events-auto absolute right-3 sm:right-6 lg:right-10 top-1/2 z-20 w-[min(44vw,360px)] -translate-y-1/2">
+              <HeroPushCard product={pushProduct} cover={pushCover} formatPrice={formatPrice} />
+            </div>
+          ) : null}
+
+          <button
+            type="button"
+            onClick={scrollToDestacados}
+            className="absolute bottom-2 left-1/2 z-30 flex -translate-x-1/2 flex-col items-center gap-1 text-center text-scn-text-secondary transition-colors hover:text-scn-text-title cursor-pointer dark:text-white/75 dark:hover:text-white min-[480px]:bottom-5"
+            aria-label="Seguí descubriendo más productos"
+          >
+            <span className="text-[10px] font-semibold tracking-[0.16em] uppercase sm:text-[11px]">
+              Seguí descubriendo
+            </span>
+            <ChevronDown size={18} className="scn-explore-more" strokeWidth={2.25} />
           </button>
+        </div>
+      </section>
+
+      <section id="destacados" className="relative py-10 md:py-14 bg-scn-bg-general scroll-mt-20">
+        <ProductCarousel products={featured} isLoading={isLoading} />
+      </section>
+
+      <section className="scn-trust relative overflow-hidden py-16 pb-20 md:py-24 md:pb-28">
+        <div className="scn-trust-glow" aria-hidden />
+        <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial={reducedMotion ? false : { opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-80px' }}
+            transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+            className="mx-auto max-w-2xl text-center"
+          >
+            <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.22em] text-[#6622CF]">
+              Cómo trabajamos
+            </p>
+            <h2 className="font-display text-3xl font-extrabold tracking-tight text-scn-text-title sm:text-4xl md:text-[2.75rem]">
+              Tecnología con trato humano
+            </h2>
+            <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-scn-text-normal sm:text-base">
+              En SCN no vendemos cajas: te asesoramos por WhatsApp, chequeamos lo que llega y
+              coordinamos entrega en Bahía Blanca.
+            </p>
+          </motion.div>
+
+          <ul className="mt-12 grid gap-8 sm:mt-16 sm:grid-cols-3 sm:gap-6 lg:gap-10">
+            {[
+              {
+                icon: ShieldCheck,
+                title: 'Garantía real',
+                text: 'Productos chequeados e importados de forma legal. Si falla, lo resolvemos.',
+              },
+              {
+                icon: Truck,
+                title: 'Envíos coordinados',
+                text: 'A domicilio o punto de encuentro en la zona.',
+              },
+              {
+                icon: MessageCircle,
+                title: 'WhatsApp directo',
+                text: 'Hablás con nosotros. Elegís, consultás y pagás como te quede cómodo.',
+              },
+            ].map((item, i) => (
+              <motion.li
+                key={item.title}
+                initial={reducedMotion ? false : { opacity: 0, y: 14 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: '-40px' }}
+                transition={{ duration: 0.5, delay: reducedMotion ? 0 : 0.08 * i, ease: [0.22, 1, 0.36, 1] }}
+                className="scn-trust-pillar group text-center sm:text-left"
+              >
+                <span className="scn-trust-icon mx-auto mb-4 flex h-12 w-12 items-center justify-center sm:mx-0">
+                  <item.icon size={22} strokeWidth={1.75} />
+                </span>
+                <h3 className="font-display text-lg font-bold tracking-wide text-scn-text-title sm:text-xl">
+                  {item.title}
+                </h3>
+                <p className="mt-2 text-sm leading-relaxed text-scn-text-normal">{item.text}</p>
+              </motion.li>
+            ))}
+          </ul>
         </div>
       </section>
 

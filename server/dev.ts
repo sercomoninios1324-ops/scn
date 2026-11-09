@@ -11,7 +11,10 @@ const PORT = Number(process.env.PORT) || 3000;
 async function startServer() {
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        watch: { ignored: ['**/data/**', '**/uploads/**', '**/api/bundle.cjs'] },
+      },
       appType: 'spa',
     });
     app.use(vite.middlewares);

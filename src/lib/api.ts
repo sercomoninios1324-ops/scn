@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { getSupabase, isSupabaseConfigured } from './supabase';
 
 const DEV_TOKEN_KEY = 'scn_dev_admin_token';
 
@@ -16,7 +16,9 @@ export function clearDevAdminToken() {
 }
 
 export async function getAuthToken(): Promise<string | null> {
-  if (supabase) {
+  if (isSupabaseConfigured) {
+    const supabase = await getSupabase();
+    if (!supabase) return null;
     const { data } = await supabase.auth.getSession();
     return data.session?.access_token ?? null;
   }
