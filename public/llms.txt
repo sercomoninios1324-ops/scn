@@ -1,0 +1,24 @@
+# SCN — Seamos como niños
+
+> Catálogo de tecnología y electrónica en Bahía Blanca (Buenos Aires, Argentina). Celulares, auriculares, parlantes, cargadores, cables, smartwatches y accesorios. La compra se coordina por WhatsApp con asesoramiento humano; entrega a domicilio o punto de encuentro en Bahía Blanca.
+
+Los precios están en pesos argentinos (ARS) y corresponden a pago en efectivo o transferencia. El stock y la disponibilidad se confirman por WhatsApp antes de cada venta.
+
+## Páginas principales
+
+- [Inicio](https://somos-scn.com.ar/): presentación y productos destacados
+- [Catálogo](https://somos-scn.com.ar/catalogo): todos los productos con búsqueda y filtros por categoría, oferta y stock
+- [Cómo comprar](https://somos-scn.com.ar/como-comprar): pasos para comprar, medios de pago y envíos
+- [Contacto](https://somos-scn.com.ar/contacto): WhatsApp, correo e Instagram oficiales
+- [Nosotros](https://somos-scn.com.ar/nosotros): quiénes somos
+
+## Políticas
+
+- [Garantía](https://somos-scn.com.ar/garantia): prueba de 30 días ante falla de fábrica y soporte posventa
+- [Condiciones de compra](https://somos-scn.com.ar/condiciones): precios, pagos, stock y envíos
+- [Privacidad](https://somos-scn.com.ar/privacidad): uso de datos personales
+
+## Datos
+
+- [Sitemap](https://somos-scn.com.ar/sitemap.xml): lista completa de fichas de producto (`/producto/<slug>`)
+- Contacto comercial: WhatsApp +54 9 291 522-4734 · Instagram [@somos_scn](https://instagram.com/somos_scn)

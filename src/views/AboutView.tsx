@@ -8,8 +8,11 @@ import { useCatalog } from '../context/CatalogContext';
 import { useIsDark } from '../hooks/useIsDark';
 import { usePageMeta } from '../hooks/usePageMeta';
 import { useReducedMotion } from '../hooks/useReducedMotion';
+import { useEffectsReady } from '../lib/effects';
 import { buildWhatsAppUrl } from '../lib/whatsapp';
-import logoSrc from '../assets/scn-logo-alpha.png';
+import logoSrc from '../assets/scn-logo-192.webp';
+// Textura detallada para el rayo (se baja recién cuando arrancan los efectos)
+import logoTexture from '../assets/scn-logo-alpha.png';
 
 // WebGL (ogl): se baja aparte para no frenar el primer render.
 const ElectricLogo = lazy(() => import('../components/ElectricLogo'));
@@ -17,6 +20,7 @@ const ElectricLogo = lazy(() => import('../components/ElectricLogo'));
 export default function AboutView() {
   const { settings } = useCatalog();
   const reducedMotion = useReducedMotion();
+  const effectsReady = useEffectsReady();
   const isDark = useIsDark();
 
   usePageMeta({
@@ -58,10 +62,10 @@ export default function AboutView() {
                     draggable={false}
                   />
                 ) : null}
-                {logoSrc ? (
+                {logoSrc && effectsReady ? (
                   <Suspense fallback={null}>
                   <ElectricLogo
-                    src={logoSrc}
+                    src={logoTexture}
                     color={isDark ? '#e0c8ff' : '#6622CF'}
                     glowColor={isDark ? '#8b5cf6' : '#9468D4'}
                     scale={0.48}

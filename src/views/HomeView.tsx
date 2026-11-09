@@ -10,9 +10,12 @@ import { useCatalog, type CatalogProduct } from '../context/CatalogContext';
 import { useIsDark } from '../hooks/useIsDark';
 import { usePageMeta } from '../hooks/usePageMeta';
 import { useReducedMotion } from '../hooks/useReducedMotion';
+import { useEffectsReady } from '../lib/effects';
 import { productCover, resolvePushProduct } from '../lib/dailyPush';
 import { localBusinessJsonLd } from '../lib/seo';
-import logoSrc from '../assets/scn-logo-alpha.png';
+import logoSrc from '../assets/scn-logo-192.webp';
+// Textura detallada para el rayo (se baja recién cuando arrancan los efectos)
+import logoTexture from '../assets/scn-logo-alpha.png';
 
 // WebGL (ogl): se baja aparte para no frenar el primer render.
 const ElectricLogo = lazy(() => import('../components/ElectricLogo'));
@@ -20,6 +23,7 @@ const ElectricLogo = lazy(() => import('../components/ElectricLogo'));
 export default function HomeView() {
   const { products, settings, isLoading } = useCatalog();
   const reducedMotion = useReducedMotion();
+  const effectsReady = useEffectsReady();
   const isDark = useIsDark();
   const [pushProduct, setPushProduct] = useState<CatalogProduct | null>(null);
   const [wideHero, setWideHero] = useState(
@@ -100,10 +104,10 @@ export default function HomeView() {
                     draggable={false}
                   />
                 ) : null}
-                {logoSrc ? (
+                {logoSrc && effectsReady ? (
                   <Suspense fallback={null}>
                   <ElectricLogo
-                    src={logoSrc}
+                    src={logoTexture}
                     color={isDark ? '#e0c8ff' : '#6622CF'}
                     glowColor={isDark ? '#8b5cf6' : '#9468D4'}
                     scale={0.48}

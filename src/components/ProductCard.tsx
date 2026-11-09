@@ -67,7 +67,7 @@ function ProductCard({
           <CatalogImage
             src={coverImg}
             width={480}
-            srcSetWidths={[320, 480, 640, 960]}
+            srcSetWidths={[320, 384, 480, 640, 960]}
             sizes={
               layout === 'carousel'
                 ? '(min-width: 768px) 330px, 310px'

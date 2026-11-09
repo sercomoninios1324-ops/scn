@@ -1,5 +1,6 @@
 'use client';
 
+import { EFFECT_FRAME_MS } from '../lib/effects';
 import { useEffect, useRef } from 'react';
 import type { CSSProperties } from 'react';
 import { Renderer, Program, Mesh, Triangle, Texture } from 'ogl';
@@ -881,8 +882,15 @@ const ElectricLogo = ({
       uniforms.uResolution.value = [width, height];
     };
 
+    let lastDrawn = 0;
     const frame = (now: number) => {
       raf = 0;
+      // Celular: 30 fps alcanzan para el rayo y gastan la mitad de batería/GPU.
+      if (EFFECT_FRAME_MS && now - lastDrawn < EFFECT_FRAME_MS - 2) {
+        if (visible && pageVisible) raf = requestAnimationFrame(frame);
+        return;
+      }
+      lastDrawn = now;
       const s = settingsRef.current;
       const dt = Math.min(0.05, Math.max(0, (now - last) / 1000));
       last = now;

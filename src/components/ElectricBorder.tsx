@@ -1,5 +1,6 @@
 'use client';
 
+import { EFFECT_FRAME_MS } from '../lib/effects';
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 
 export interface ElectricBorderProps {
@@ -663,9 +664,16 @@ const ElectricBorder = ({
       gl.drawArrays(gl.TRIANGLES, 0, 3);
     };
 
+    let lastDrawn = 0;
     const frame = (now: number) => {
       raf = 0;
       if (lost) return;
+      // Celular: 30 fps alcanzan para el rayo y gastan la mitad de batería/GPU.
+      if (EFFECT_FRAME_MS && now - lastDrawn < EFFECT_FRAME_MS - 2) {
+        if (visible && pageVisible) raf = requestAnimationFrame(frame);
+        return;
+      }
+      lastDrawn = now;
       const s = settingsRef.current;
       const dt = clamp((now - last) / 1000 || 0, 0, 0.05);
       last = Math.max(last, now);

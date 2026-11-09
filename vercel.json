@@ -53,7 +53,7 @@
     { "source": "/api", "destination": "/api" },
     { "source": "/api/(.*)", "destination": "/api" },
     {
-      "source": "/((?!api/|assets/|og\\.jpg|og\\.png|favicon\\.png|logo\\.png|apple-touch-icon\\.png|icon-192\\.png|icon-512\\.png|site\\.webmanifest|robots\\.txt|sitemap\\.xml).*)",
+      "source": "/((?!api/|assets/|\\.well-known/)(?!.*\\.[A-Za-z0-9]{2,12}$).*)",
       "destination": "/index.html"
     }
   ]

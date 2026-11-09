@@ -34,6 +34,10 @@
         href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Sora:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
       />
     </noscript>
+    <!-- Datos del catálogo en paralelo con el JS: la foto principal aparece antes -->
+    <link rel="preload" href="/api/products" as="fetch" crossorigin="anonymous" />
+    <link rel="preload" href="/api/settings" as="fetch" crossorigin="anonymous" />
+    <link rel="preload" href="/api/categories" as="fetch" crossorigin="anonymous" />
     <link rel="icon" type="image/png" sizes="64x64" href="/favicon.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />

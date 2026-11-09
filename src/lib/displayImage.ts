@@ -1,4 +1,4 @@
-const WIDTHS = [160, 320, 480, 640, 960, 1280] as const;
+const WIDTHS = [160, 320, 384, 480, 640, 960, 1280] as const;
 
 function snapWidth(width: number): number {
   return WIDTHS.find((n) => n >= width) ?? WIDTHS[WIDTHS.length - 1];

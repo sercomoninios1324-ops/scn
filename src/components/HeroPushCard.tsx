@@ -4,6 +4,7 @@ import { ArrowRight, Sparkles } from 'lucide-react';
 import CatalogImage from './CatalogImage';
 import type { CatalogProduct } from '../context/CatalogContext';
 import { useIsDark } from '../hooks/useIsDark';
+import { useEffectsReady } from '../lib/effects';
 
 // WebGL/canvas: se baja aparte para no frenar el primer render.
 const ElectricBorder = lazy(() => import('./ElectricBorder'));
@@ -24,6 +25,7 @@ function plainDescription(product: CatalogProduct): string {
 
 export default function HeroPushCard({ product, cover, formatPrice, compact = false }: Props) {
   const isDark = useIsDark();
+  const effectsReady = useEffectsReady();
   const description = plainDescription(product);
 
   const card = (
@@ -80,34 +82,34 @@ export default function HeroPushCard({ product, cover, formatPrice, compact = fa
     </Link>
   );
 
-  const plainFrame = (
-    <div className="w-full rounded-[26px] ring-1 ring-[#9468D4]/50" style={{ padding: 3 }}>
-      {card}
-    </div>
-  );
-
   return (
-    <div className="scn-hero-push w-full rounded-[26px] shadow-[0_20px_50px_-18px_rgba(102,34,207,0.35)] dark:shadow-[0_24px_70px_-18px_rgba(102,34,207,0.65)]">
-      <Suspense fallback={plainFrame}>
-      <ElectricBorder
-        color={isDark ? '#C9B2E8' : '#9468D4'}
-        glowColor="#6622CF"
-        speed={1.05}
-        chaos={0.55}
-        thickness={1.7}
-        strands={3}
-        glow={1.1}
-        intensity={1.15}
-        arcs={2}
-        borderRadius={26}
-        intro={false}
-        theme={isDark ? 'dark' : 'light'}
-        className="w-full"
-        style={{ padding: 3 }}
-      >
+    <div className="scn-hero-push relative w-full rounded-[26px] shadow-[0_20px_50px_-18px_rgba(102,34,207,0.35)] dark:shadow-[0_24px_70px_-18px_rgba(102,34,207,0.65)]">
+      {/* La tarjeta nunca se vuelve a montar: el rayo es una capa encima que aparece cuando
+          la página ya cargó y hay GPU real (sin GPU queda este marco estático). */}
+      <div className="w-full rounded-[26px] ring-1 ring-[#9468D4]/50" style={{ padding: 3 }}>
         {card}
-      </ElectricBorder>
-      </Suspense>
+      </div>
+      {effectsReady ? (
+        <div className="pointer-events-none absolute inset-0" aria-hidden>
+          <Suspense fallback={null}>
+            <ElectricBorder
+              color={isDark ? '#C9B2E8' : '#9468D4'}
+              glowColor="#6622CF"
+              speed={1.05}
+              chaos={0.55}
+              thickness={1.7}
+              strands={3}
+              glow={1.1}
+              intensity={1.15}
+              arcs={2}
+              borderRadius={26}
+              intro
+              theme={isDark ? 'dark' : 'light'}
+              className="h-full w-full"
+            />
+          </Suspense>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -4,7 +4,7 @@ import path from 'path';
 import type { Express, Request, Response } from 'express';
 import sharp from 'sharp';
 
-const WIDTHS = new Set([160, 320, 480, 640, 960, 1280]);
+const WIDTHS = new Set([160, 320, 384, 480, 640, 960, 1280]);
 const IS_VERCEL = !!process.env.VERCEL;
 const ROOT = IS_VERCEL
   ? path.join('/tmp', 'scn-img-cache')
