@@ -541,7 +541,8 @@ const ElectricBorder = ({
     const program = gl ? link(gl) : null;
     if (!gl || !program) return;
 
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    // Efecto de marca: animación completa siempre (decisión del cliente), aun con "reducir movimiento".
+    const reduced = false;
     const vao = gl.createVertexArray();
     const arcEnds = new Float32Array(ARCS * 4);
     const arcShape = new Float32Array(ARCS * 4);

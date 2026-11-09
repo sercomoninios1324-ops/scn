@@ -826,7 +826,8 @@ const ElectricLogo = ({
       program: new Program(gl, { vertex, fragment, uniforms, depthTest: false, depthWrite: false })
     });
 
-    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+    // Efecto de marca: animación completa siempre (decisión del cliente), aun con "reducir movimiento".
+    const reducedMotion = false;
     const pointer = { x: 0, y: 0, over: false };
     const hover = { x: 0, y: 0, vx: 0, vy: 0, power: 0 };
     const sparks: Spark[] = [];
