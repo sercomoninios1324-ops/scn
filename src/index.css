@@ -807,3 +807,46 @@ textarea:focus {
   -webkit-backdrop-filter: blur(14px);
   border-top: 1px solid var(--border-glass);
 }
+
+/* ── Página 404 ─────────────────────────────────────────────────────────
+   Dígitos con degradé de marca y halo eléctrico; el "0" titila como un
+   enchufe flojo (se anima siempre, igual que el resto de los efectos). */
+.scn-404 {
+  display: inline-flex;
+  gap: 0.02em;
+  user-select: none;
+}
+
+.scn-404-digit {
+  background: linear-gradient(180deg, #ffffff 0%, #e0c8ff 38%, #9468d4 72%, #6622cf 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 18px rgba(148, 104, 212, 0.55)) drop-shadow(0 0 2px rgba(224, 200, 255, 0.9));
+}
+
+:root:not(.dark) .scn-404-digit {
+  background: linear-gradient(180deg, #9468d4 0%, #6622cf 60%, #3d1580 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  filter: drop-shadow(0 0 16px rgba(102, 34, 207, 0.35));
+}
+
+.scn-404-zero {
+  animation: scn404Flicker 4.2s steps(1, end) infinite;
+}
+
+@keyframes scn404Flicker {
+  0%, 18%, 22%, 61%, 64%, 66%, 100% {
+    opacity: 1;
+  }
+  19%, 21% {
+    opacity: 0.25;
+  }
+  62% {
+    opacity: 0.4;
+  }
+  65% {
+    opacity: 0.15;
+  }
+}

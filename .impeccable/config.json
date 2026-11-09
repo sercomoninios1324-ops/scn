@@ -1,0 +1,26 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "gradient-text",
+        "value": "*",
+        "files": [
+          "public/404.html"
+        ],
+        "createdAt": "2026-11-09T23:30:00.747Z",
+        "reason": "Brand system: electric violet gradient/glow is the site's established identity (ElectricLogo, ElectricBorder, aurora); 404 mirrors it"
+      },
+      {
+        "rule": "dark-glow",
+        "value": "*",
+        "files": [
+          "public/404.html"
+        ],
+        "createdAt": "2026-11-09T23:30:01.078Z",
+        "reason": "Brand system: electric violet glow matches existing hero effects and CTA shadows across the site"
+      }
+    ]
+  }
+}

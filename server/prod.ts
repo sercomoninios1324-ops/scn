@@ -11,7 +11,7 @@ app.use(express.static(distPath));
 app.get('*', (req, res) => {
   // Igual que vercel.json: archivos inexistentes (.json, .txt, /.well-known/…) → 404, no el HTML de la SPA.
   if (req.path.startsWith('/.well-known/') || /\.[A-Za-z0-9]{2,12}$/.test(req.path)) {
-    return res.status(404).type('text/plain').send('Not found');
+    return res.status(404).sendFile(path.join(distPath, '404.html'));
   }
   res.sendFile(path.join(distPath, 'index.html'));
 });

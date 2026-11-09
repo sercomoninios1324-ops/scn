@@ -1,6 +1,6 @@
 import { lazy, Suspense } from 'react';
 import { LazyMotion, domAnimation } from 'motion/react';
-import { BrowserRouter, Navigate, Route, Routes, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Route, Routes, useNavigate } from 'react-router-dom';
 import { CatalogProvider, useCatalog } from './context/CatalogContext';
 import { CartProvider } from './context/CartContext';
 import { usePageMeta } from './hooks/usePageMeta';
@@ -18,6 +18,7 @@ const LegalLayout = lazy(() => import('./components/LegalLayout'));
 const WarrantyView = lazy(() => import('./views/WarrantyView'));
 const PrivacyView = lazy(() => import('./views/PrivacyView'));
 const TermsView = lazy(() => import('./views/TermsView'));
+const NotFoundView = lazy(() => import('./views/NotFoundView'));
 
 const AdminView = lazy(() => import('./views/AdminView'));
 
@@ -89,9 +90,9 @@ export default function App() {
                 <Route path="condiciones" element={<TermsView />} />
                 <Route path="privacidad" element={<PrivacyView />} />
               </Route>
+              <Route path="*" element={<NotFoundView />} />
             </Route>
             <Route path="personal" element={<AdminRoute />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>
       </CartProvider>
