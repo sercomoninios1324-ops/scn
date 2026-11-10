@@ -850,3 +850,78 @@ textarea:focus {
     opacity: 0.15;
   }
 }
+
+/* ── Sorteo: botón flotante, aviso y hoja ───────────────────────────── */
+.scn-raffle-fab {
+  bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+  transition: bottom 0.3s ease;
+}
+
+/* En la ficha (celular) sube cuando aparece la barra de compra fija */
+@media (max-width: 1023px) {
+  body.scn-buybar-on .scn-raffle-fab {
+    bottom: calc(5.75rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+.scn-raffle-ping {
+  box-shadow: 0 0 0 0 rgba(148, 104, 212, 0.55);
+  animation: scnRafflePing 2.4s ease-out infinite;
+}
+
+@keyframes scnRafflePing {
+  0% {
+    box-shadow: 0 0 0 0 rgba(148, 104, 212, 0.55);
+  }
+  70%,
+  100% {
+    box-shadow: 0 0 0 14px rgba(148, 104, 212, 0);
+  }
+}
+
+.scn-raffle-nudge {
+  animation: scnRaffleNudge 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  transform-origin: bottom right;
+}
+
+@keyframes scnRaffleNudge {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.scn-raffle-backdrop {
+  animation: fadeIn 0.2s ease both;
+}
+
+.scn-raffle-sheet {
+  animation: scnRaffleSheet 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes scnRaffleSheet {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+.scn-raffle-card {
+  background:
+    radial-gradient(120% 90% at 0% 0%, rgba(102, 34, 207, 0.16), transparent 60%),
+    var(--bg-card);
+}
+
+.dark .scn-raffle-card {
+  background:
+    radial-gradient(120% 90% at 0% 0%, rgba(102, 34, 207, 0.35), transparent 60%),
+    #15111f;
+}

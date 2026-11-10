@@ -20,6 +20,15 @@
         ],
         "createdAt": "2026-11-09T23:30:01.078Z",
         "reason": "Brand system: electric violet glow matches existing hero effects and CTA shadows across the site"
+      },
+      {
+        "rule": "hero-eyebrow-chip",
+        "value": "*",
+        "files": [
+          "public/404.html"
+        ],
+        "createdAt": "2026-11-09T23:33:46.414Z",
+        "reason": "Existing site pattern: every page header uses an uppercase eyebrow (SCN · BAHÍA BLANCA, SCN · POLÍTICAS, SCN · GUÍA); 404 matches it"
       }
     ]
   }

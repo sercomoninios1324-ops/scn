@@ -5,8 +5,11 @@ import dotenv from 'dotenv';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { INITIAL_DB, type DbSchema } from './seed-data';
 import { registerImageProxy } from './imageProxy';
+import { registerRaffleRoutes } from './raffles';
+import { registerAnalyticsRoutes } from './analytics';
 import {
   encodeProductWebp,
+  isAllowedStoragePath,
   isAllowedUploadMime,
   newProductImageName,
   sanitizeProductImages,
@@ -245,10 +248,13 @@ app.use((req: Request, res: Response, next: NextFunction) => {
  * s-maxage corto: un cambio del admin se ve en ≤60 s; stale-while-revalidate evita esperas.
  * Rutas admin / pedidos: nunca cachear.
  */
-const PUBLIC_CACHEABLE = /^\/(api\/(products(\/[^/]+)?|categories|settings|sitemap\.xml)|sitemap\.xml)$/;
+const PUBLIC_CACHEABLE = /^\/(api\/(products(\/[^/]+)?|categories|settings|sitemap\.xml|raffles\/active)|sitemap\.xml)$/;
 app.use((req: Request, res: Response, next: NextFunction) => {
   if (req.method === 'GET' && PUBLIC_CACHEABLE.test(req.path) && !req.headers.authorization) {
-    res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=60, stale-while-revalidate=600');
+    // Navegador: siempre revalida (ve los cambios del admin al recargar).
+    // CDN de Vercel: guarda 60 s y sirve la copia vieja mientras actualiza.
+    res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
+    res.setHeader('Vercel-CDN-Cache-Control', 'public, max-age=60, stale-while-revalidate=600');
   } else if (req.path.startsWith('/api/') && !req.path.startsWith('/api/img')) {
     res.setHeader('Cache-Control', 'no-store');
   }
@@ -1624,6 +1630,22 @@ app.get('/api/cart-shares/:code', async (req, res) => {
     console.error('GET /api/cart-shares/:code', err);
     return res.status(500).json({ error: 'No se pudo leer el pedido' });
   }
+});
+
+// Sorteos y métricas (módulos aparte; Supabase en producción, JSON local en desarrollo)
+registerRaffleRoutes(app, {
+  getSupabase: () => supabase,
+  requireAdmin,
+  dataDir: DATA_DIR,
+  clientIp,
+  isAllowedImage: (url) => isAllowedStoragePath(url),
+});
+registerAnalyticsRoutes(app, {
+  getSupabase: () => supabase,
+  requireAdmin,
+  dataDir: DATA_DIR,
+  clientIp,
+  isProduction,
 });
 
 const SITE_ORIGIN = (process.env.SITE_URL || 'https://somos-scn.com.ar').trim().replace(/\/$/, '');

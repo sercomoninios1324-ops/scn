@@ -13,6 +13,8 @@ data/img-cache/
 uploads/*
 !uploads/.gitkeep
 data/cart-shares.json
+data/raffles.json
+data/analytics.json
 
 # caché local de la herramienta de diseño
 .impeccable/hook.cache.json

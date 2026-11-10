@@ -3,6 +3,7 @@ import { LazyMotion, domAnimation } from 'motion/react';
 import { BrowserRouter, Route, Routes, useNavigate } from 'react-router-dom';
 import { CatalogProvider, useCatalog } from './context/CatalogContext';
 import { CartProvider } from './context/CartContext';
+import { RaffleProvider } from './context/RaffleContext';
 import { usePageMeta } from './hooks/usePageMeta';
 import PublicLayout from './components/PublicLayout';
 import HomeView from './views/HomeView';
@@ -74,6 +75,7 @@ export default function App() {
     <LazyMotion features={domAnimation} strict>
     <CatalogProvider>
       <CartProvider>
+        <RaffleProvider>
         <BrowserRouter>
           <Routes>
             <Route element={<PublicLayout />}>
@@ -95,6 +97,7 @@ export default function App() {
             <Route path="personal" element={<AdminRoute />} />
           </Routes>
         </BrowserRouter>
+        </RaffleProvider>
       </CartProvider>
     </CatalogProvider>
     </LazyMotion>

@@ -25,8 +25,21 @@ const sections = [
     title: 'Medición del sitio',
     body: (
       <>
-        El sitio puede usar medición de visitas anónima para entender qué fichas se miran. No se
-        usa para perfilar publicidad personal fuera de SCN.
+        Contamos visitas de forma anónima para saber qué productos interesan: un identificador
+        aleatorio guardado en tu navegador (sin nombre, mail ni número), el tipo de dispositivo y
+        la página. No usamos cookies de terceros ni lo compartimos con nadie, y no se usa para
+        publicidad personalizada.
+      </>
+    ),
+  },
+  {
+    title: 'Sorteos',
+    body: (
+      <>
+        Si participás de un sorteo, guardamos solo los datos que pide el formulario (nombre,
+        WhatsApp y/o mail) para elegir al ganador al azar y contactarlo. No los usamos para otra
+        cosa ni los compartimos. Podés pedir que borremos tu participación escribiéndonos por
+        WhatsApp.
       </>
     ),
   },

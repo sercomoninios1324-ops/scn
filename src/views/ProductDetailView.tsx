@@ -17,6 +17,7 @@ import { useCart } from '../context/CartContext';
 import { usePageMeta } from '../hooks/usePageMeta';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { productJsonLd } from '../lib/seo';
+import { trackProductView } from '../lib/analytics';
 import { buildWhatsAppUrl, productWhatsAppMessage } from '../lib/whatsapp';
 import {
   formatCategoryLabel,
@@ -33,7 +34,7 @@ type ProductWithImages = Product & {
 
 export default function ProductDetailView() {
   const { slug = '' } = useParams();
-  const { products, settings } = useCatalog();
+  const { products, settings, isAdminLoggedIn } = useCatalog();
   const { items, addItem, setQty } = useCart();
   const reducedMotion = useReducedMotion();
   const [product, setProduct] = useState<ProductWithImages | null>(
@@ -61,10 +62,17 @@ export default function ProductDetailView() {
     if (!showBuyBar || window.matchMedia('(min-width: 1024px)').matches) return undefined;
     const prev = document.body.style.paddingBottom;
     document.body.style.paddingBottom = 'calc(4.75rem + env(safe-area-inset-bottom, 0px))';
+    document.body.classList.add('scn-buybar-on');
     return () => {
       document.body.style.paddingBottom = prev;
+      document.body.classList.remove('scn-buybar-on');
     };
   }, [showBuyBar]);
+
+  // Métrica: una vista por producto por día por navegador
+  useEffect(() => {
+    if (product?.id) trackProductView(product.id, isAdminLoggedIn);
+  }, [product?.id, isAdminLoggedIn]);
 
   useEffect(() => {
     const fromList = products.find((p) => p.slug === slug);

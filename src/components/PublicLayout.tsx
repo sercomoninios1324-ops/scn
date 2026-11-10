@@ -1,8 +1,13 @@
 import { Outlet, useLocation } from 'react-router-dom';
-import { Suspense, useEffect, useRef } from 'react';
+import { lazy, Suspense, useEffect, useRef } from 'react';
 import Navbar from './Navbar';
 import Footer from './Footer';
 import { useCatalog } from '../context/CatalogContext';
+import { useRaffle } from '../context/RaffleContext';
+import { trackVisit } from '../lib/analytics';
+
+// Solo se descarga si hay un sorteo activo
+const RaffleFloating = lazy(() => import('./raffle/RaffleFloating'));
 
 function RouteFallback() {
   return (
@@ -19,6 +24,13 @@ export default function PublicLayout() {
   const { settings, isAdminLoggedIn, handleLogout, error, refresh } = useCatalog();
   const location = useLocation();
   const prevPathRef = useRef(location.pathname);
+  const { raffle } = useRaffle();
+
+  // Visitas: una por día por navegador (el servidor además descarta duplicados y países ≠ AR)
+  useEffect(() => {
+    const t = window.setTimeout(() => trackVisit(location.pathname, isAdminLoggedIn), 1200);
+    return () => window.clearTimeout(t);
+  }, [location.pathname, isAdminLoggedIn]);
 
   useEffect(() => {
     const prev = prevPathRef.current;
@@ -53,6 +65,12 @@ export default function PublicLayout() {
       </main>
 
       <Footer settings={settings} />
+
+      {raffle ? (
+        <Suspense fallback={null}>
+          <RaffleFloating />
+        </Suspense>
+      ) : null}
     </div>
   );
 }

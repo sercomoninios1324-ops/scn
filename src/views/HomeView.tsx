@@ -6,6 +6,9 @@ import ProductCarousel from '../components/ProductCarousel';
 import VioletAurora from '../components/effects/VioletAurora';
 
 import HeroPushCard from '../components/HeroPushCard';
+import { useRaffle } from '../context/RaffleContext';
+
+const RaffleHomeSection = lazy(() => import('../components/raffle/RaffleHomeSection'));
 import { useCatalog, type CatalogProduct } from '../context/CatalogContext';
 import { useIsDark } from '../hooks/useIsDark';
 import { usePageMeta } from '../hooks/usePageMeta';
@@ -22,6 +25,7 @@ const ElectricLogo = lazy(() => import('../components/ElectricLogo'));
 
 export default function HomeView() {
   const { products, settings, isLoading } = useCatalog();
+  const { raffle } = useRaffle();
   const reducedMotion = useReducedMotion();
   const effectsReady = useEffectsReady();
   const isDark = useIsDark();
@@ -190,6 +194,12 @@ export default function HomeView() {
           </button>
         </div>
       </section>
+
+      {raffle ? (
+        <Suspense fallback={null}>
+          <RaffleHomeSection />
+        </Suspense>
+      ) : null}
 
       <section id="destacados" className="relative py-10 md:py-14 bg-scn-bg-general scroll-mt-20">
         <ProductCarousel products={featured} isLoading={isLoading} />

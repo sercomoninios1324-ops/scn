@@ -1,13 +1,16 @@
 
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { lazy, Suspense, useCallback, useState, useEffect, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Lock, LayoutGrid, FileEdit, Trash2, Plus, Settings,
   Eye, EyeOff, Star, Zap, Save, FolderPlus, Upload,
   Trash, ChevronUp, ChevronDown, CheckSquare, Square, LogOut,
-  ExternalLink, Tags, Pencil, Check, X, ArrowLeft, ImageOff,
+  ExternalLink, Tags, Pencil, Check, X, ArrowLeft, ImageOff, Gift, BarChart3,
 } from 'lucide-react';
+
+const RafflesTab = lazy(() => import('./admin/RafflesTab'));
+const MetricsTab = lazy(() => import('./admin/MetricsTab'));
 import { Product, Category, SiteSettings } from '../types';
 import { getSupabase, isSupabaseConfigured } from '../lib/supabase';
 import { apiFetch, safeJson, setDevAdminToken } from '../lib/api';
@@ -40,11 +43,11 @@ export default function AdminView({
 }: AdminViewProps) {
   const [toast, setToast] = useState<Toast>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const notify = (type: 'success' | 'error', message: string) => {
+  const notify = useCallback((type: 'success' | 'error', message: string) => {
     if (toastTimer.current) clearTimeout(toastTimer.current);
     setToast({ type, message });
     toastTimer.current = setTimeout(() => setToast(null), type === 'error' ? 6000 : 3000);
-  };
+  }, []);
   useEffect(() => () => {
     if (toastTimer.current) clearTimeout(toastTimer.current);
   }, []);
@@ -55,7 +58,7 @@ export default function AdminView({
   const [loginError, setLoginError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<'products' | 'categories' | 'settings'>('products');
+  const [activeTab, setActiveTab] = useState<'products' | 'categories' | 'raffles' | 'metrics' | 'settings'>('products');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [isSavingProduct, setIsSavingProduct] = useState(false);
@@ -1129,10 +1132,10 @@ export default function AdminView({
         </div>
 
 
-        <div className="flex w-full items-center gap-1 overflow-x-auto bg-scn-bg-section border border-scn-border rounded-xl p-1 sm:w-auto">
+        <div className="grid w-full grid-cols-3 gap-1 rounded-xl border border-scn-border bg-scn-bg-section p-1 sm:flex sm:w-auto sm:items-center" role="tablist" aria-label="Secciones del panel">
           <button
             onClick={() => setActiveTab('products')}
-            className={`flex shrink-0 items-center space-x-1 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+            className={`flex min-h-10 shrink-0 items-center justify-center gap-1 px-2 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer sm:px-4 ${
               activeTab === 'products'
                 ? 'bg-scn-bg-card text-scn-primary shadow-xs'
                 : 'text-scn-text-normal hover:text-scn-text-title'
@@ -1143,7 +1146,7 @@ export default function AdminView({
           </button>
           <button
             onClick={() => setActiveTab('categories')}
-            className={`flex shrink-0 items-center space-x-1 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+            className={`flex min-h-10 shrink-0 items-center justify-center gap-1 px-2 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer sm:px-4 ${
               activeTab === 'categories'
                 ? 'bg-scn-bg-card text-scn-primary shadow-xs'
                 : 'text-scn-text-normal hover:text-scn-text-title'
@@ -1152,10 +1155,32 @@ export default function AdminView({
             <Tags size={13} />
             <span>Categorías</span>
           </button>
+          <button
+            onClick={() => setActiveTab('raffles')}
+            className={`flex min-h-10 shrink-0 items-center justify-center gap-1 px-2 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer sm:px-4 ${
+              activeTab === 'raffles'
+                ? 'bg-scn-bg-card text-scn-primary shadow-xs'
+                : 'text-scn-text-normal hover:text-scn-text-title'
+            }`}
+          >
+            <Gift size={13} />
+            <span>Sorteos</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('metrics')}
+            className={`flex min-h-10 shrink-0 items-center justify-center gap-1 px-2 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer sm:px-4 ${
+              activeTab === 'metrics'
+                ? 'bg-scn-bg-card text-scn-primary shadow-xs'
+                : 'text-scn-text-normal hover:text-scn-text-title'
+            }`}
+          >
+            <BarChart3 size={13} />
+            <span>Métricas</span>
+          </button>
 
           <button
             onClick={() => setActiveTab('settings')}
-            className={`flex shrink-0 items-center space-x-1 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+            className={`flex min-h-10 shrink-0 items-center justify-center gap-1 px-2 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer sm:px-4 ${
               activeTab === 'settings'
                 ? 'bg-scn-bg-card text-scn-primary shadow-xs'
                 : 'text-scn-text-normal hover:text-scn-text-title'
@@ -1459,6 +1484,18 @@ export default function AdminView({
         </div>
       )}
 
+
+      {activeTab === 'raffles' && (
+        <Suspense fallback={<div className="flex justify-center py-16"><div className="h-8 w-8 animate-spin rounded-full border-2 border-scn-primary border-t-transparent" /></div>}>
+          <RafflesTab notify={notify} />
+        </Suspense>
+      )}
+
+      {activeTab === 'metrics' && (
+        <Suspense fallback={<div className="flex justify-center py-16"><div className="h-8 w-8 animate-spin rounded-full border-2 border-scn-primary border-t-transparent" /></div>}>
+          <MetricsTab products={products} />
+        </Suspense>
+      )}
 
       {activeTab === 'categories' && (
         <div id="admin-categories-tab" className="mx-auto max-w-2xl space-y-4">
