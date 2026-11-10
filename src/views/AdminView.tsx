@@ -302,7 +302,10 @@ export default function AdminView({
           [field]: !current,
         }),
       });
-      if (!res.ok) throw new Error('No se pudo actualizar el producto');
+      if (!res.ok) {
+        const data = (await safeJson(res).catch(() => null)) as { error?: string } | null;
+        throw new Error(data?.error || 'No se pudo actualizar el producto');
+      }
       onRefreshData();
     } catch (err: any) {
       notify('error', err.message);

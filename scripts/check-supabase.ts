@@ -65,6 +65,10 @@ async function main() {
   if (colErr) fail(`Columna compare_at_price: ${colErr.message} → correr supabase_setup_produccion.sql`);
   else ok('Columna products.compare_at_price');
 
+  const { error: pushErr } = await db.from('products').select('is_push').limit(1);
+  if (pushErr) fail(`Columna is_push ("Hoy en SCN"): ${pushErr.message} → correr supabase_setup_produccion.sql`);
+  else ok('Columna products.is_push');
+
   console.log('\n3) Catálogo');
   const { data: products, error: prodErr } = await db
     .from('products')

@@ -14,6 +14,10 @@ alter table public.products
 comment on column public.products.compare_at_price is
   'Precio anterior opcional. Si es mayor que price, la UI muestra Oferta y precio tachado.';
 
+-- 1b) Producto "Hoy en SCN" (botón Empuje del panel)
+alter table public.products
+  add column if not exists is_push boolean not null default false;
+
 -- 2) Pedidos por WhatsApp con código corto (/pedido/CODE)
 create table if not exists public.cart_shares (
   code text primary key,

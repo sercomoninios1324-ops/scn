@@ -809,6 +809,29 @@ app.get('/api/products/:slug', async (req, res) => {
   }
 });
 
+/**
+ * La base de producción puede no tener la columna products.is_push ("Hoy en SCN").
+ * Sin la columna, insert/update con is_push fallaban (500) y no se podía guardar ningún producto.
+ * Se detecta una vez (y se re-chequea cada 5 min, así al agregarla se activa sola).
+ */
+const PUSH_COLUMN_MISSING_MSG =
+  'Para elegir el producto de "Hoy en SCN" falta agregar la columna is_push en la base ' +
+  '(una línea en supabase_setup_produccion.sql). Mientras tanto, el inicio rota un destacado por día.';
+let pushColumnCache: { value: boolean; at: number } | null = null;
+
+async function productsHavePushColumn(): Promise<boolean> {
+  if (!supabase) return true;
+  const now = Date.now();
+  if (pushColumnCache && (pushColumnCache.value || now - pushColumnCache.at < 5 * 60_000)) {
+    return pushColumnCache.value;
+  }
+  const { error } = await supabase.from('products').select('is_push').limit(1);
+  const value = !error;
+  if (error) console.warn('products.is_push no disponible:', error.message);
+  pushColumnCache = { value, at: now };
+  return value;
+}
+
 app.post('/api/products', requireAdmin, async (req, res) => {
   const {
     name,
@@ -853,10 +876,9 @@ app.post('/api/products', requireAdmin, async (req, res) => {
       }
 
       const generatedSku = sku || 'SKU-' + Math.floor(Math.random() * 1000000);
+      const hasPush = await productsHavePushColumn();
 
-      const { data: newProduct, error: productError } = await supabase
-        .from('products')
-        .insert({
+      const insertData: Record<string, unknown> = {
           name,
           slug,
           short_description: short_description || '',
@@ -867,18 +889,22 @@ app.post('/api/products', requireAdmin, async (req, res) => {
           includes: Array.isArray(includes) ? includes : [],
           category_id,
           is_featured: !!is_featured,
-          is_push: !!is_push,
           is_active: is_active !== undefined ? !!is_active : true,
           sku: generatedSku,
           stock: stock !== undefined ? Number(stock) : 0,
-        })
+      };
+      if (hasPush) insertData.is_push = !!is_push;
+
+      const { data: newProduct, error: productError } = await supabase
+        .from('products')
+        .insert(insertData)
         .select()
         .single();
 
       if (productError) throw productError;
 
       const productId = newProduct.id;
-      if (is_push) {
+      if (is_push && hasPush) {
         await supabase.from('products').update({ is_push: false }).neq('id', productId);
       }
       const imagesToInsert: any[] = [];
@@ -1064,13 +1090,20 @@ app.put('/api/products/:id', requireAdmin, async (req, res) => {
       if (compare_at_price !== undefined) updateData.compare_at_price = normalizeCompareAtPrice(compare_at_price);
       if (category_id !== undefined) updateData.category_id = category_id;
       if (is_featured !== undefined) updateData.is_featured = !!is_featured;
-      if (is_push !== undefined) updateData.is_push = !!is_push;
+      const hasPush = 'is_push' in currentProduct;
+      if (is_push !== undefined && hasPush) updateData.is_push = !!is_push;
       if (is_active !== undefined) updateData.is_active = !!is_active;
       if (sku !== undefined) updateData.sku = sku;
       if (stock !== undefined) updateData.stock = Number(stock);
       if (includes !== undefined) updateData.includes = Array.isArray(includes) ? includes : currentProduct.includes;
 
-      if (is_push) {
+      // Toggle de "Hoy en SCN" sin la columna en la base: explicar en vez de dar error 500.
+      if (is_push !== undefined && !hasPush) {
+        const onlyPush = Object.keys(req.body || {}).every((k) => k === 'is_push');
+        if (onlyPush) return res.status(409).json({ error: PUSH_COLUMN_MISSING_MSG });
+      }
+
+      if (is_push && hasPush) {
         await supabase.from('products').update({ is_push: false }).neq('id', productId);
       }
 
