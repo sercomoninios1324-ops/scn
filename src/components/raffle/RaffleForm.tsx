@@ -2,6 +2,7 @@ import { useId, useState, type FormEvent } from 'react';
 import { CheckCircle2, Loader2 } from 'lucide-react';
 import { useRaffle, type PublicRaffle } from '../../context/RaffleContext';
 import { getVisitorId } from '../../lib/analytics';
+import { trackRaffleEntry } from '../../lib/tracking';
 
 type Props = { raffle: PublicRaffle; compact?: boolean; autoFocus?: boolean };
 
@@ -68,6 +69,7 @@ export default function RaffleForm({ raffle, compact = false, autoFocus = false 
       if (res.ok || data.already) {
         setMessage(data.already ? '¡Ya estabas participando!' : '¡Listo, ya estás participando!');
         setStatus('done');
+        if (!data.already) trackRaffleEntry(raffle.title);
         markJoined();
         return;
       }

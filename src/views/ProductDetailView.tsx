@@ -18,6 +18,7 @@ import { usePageMeta } from '../hooks/usePageMeta';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { productJsonLd } from '../lib/seo';
 import { trackProductView } from '../lib/analytics';
+import { trackAddToCart, trackViewItem, trackWhatsAppCheckout } from '../lib/tracking';
 import { buildWhatsAppUrl, productWhatsAppMessage } from '../lib/whatsapp';
 import {
   formatCategoryLabel,
@@ -71,8 +72,10 @@ export default function ProductDetailView() {
 
   // Métrica: una vista por producto por día por navegador
   useEffect(() => {
-    if (product?.id) trackProductView(product.id, isAdminLoggedIn);
-  }, [product?.id, isAdminLoggedIn]);
+    if (!product?.id) return;
+    trackProductView(product.id, isAdminLoggedIn);
+    trackViewItem({ id: product.id, name: product.name, price: product.price, category: product.category?.name });
+      }, [product?.id, isAdminLoggedIn]);
 
   useEffect(() => {
     const fromList = products.find((p) => p.slug === slug);
@@ -207,6 +210,12 @@ export default function ProductDetailView() {
     settings.whatsapp_number
   );
 
+  const onWhatsAppClick = () =>
+    trackWhatsAppCheckout(
+      [{ id: product.id, name: product.name, price: product.price, category: product.category?.name, quantity: displayQty }],
+      'producto'
+    );
+
   const onOffer = isOnOffer(product);
   const shortDesc = product.short_description?.trim() || '';
   const longDesc = product.description?.trim() || '';
@@ -232,6 +241,7 @@ export default function ProductDetailView() {
     const cover =
       product.images.find((img) => img.is_cover)?.storage_path ||
       product.images[0]?.storage_path;
+    trackAddToCart({ id: product.id, name: product.name, price: product.price, category: product.category?.name }, qtyDraft);
     addItem(
       {
         productId: product.id,
@@ -273,6 +283,7 @@ export default function ProductDetailView() {
     <div className="space-y-3">
       <a
         href={waHref}
+        onClick={onWhatsAppClick}
         target="_blank"
         rel="noopener noreferrer"
         className="flex min-h-12 w-full items-center justify-center gap-2.5 rounded-xl bg-[#6622CF] px-6 py-3.5 text-sm font-semibold text-white shadow-lg shadow-[#6622CF]/30 transition-transform hover:scale-[1.01]"
@@ -496,6 +507,7 @@ export default function ProductDetailView() {
           </div>
           <a
             href={waHref}
+            onClick={onWhatsAppClick}
             target="_blank"
             rel="noopener noreferrer"
             tabIndex={showBuyBar ? 0 : -1}

@@ -27,8 +27,9 @@ const sections = [
       <>
         Contamos visitas de forma anónima para saber qué productos interesan: un identificador
         aleatorio guardado en tu navegador (sin nombre, mail ni número), el tipo de dispositivo y
-        la página. No usamos cookies de terceros ni lo compartimos con nadie, y no se usa para
-        publicidad personalizada.
+        la página. Además usamos Google Analytics (a través de Google Tag Manager), que guarda
+        cookies de Google para medir visitas de forma agregada. No lo usamos para publicidad
+        personalizada.
       </>
     ),
   },

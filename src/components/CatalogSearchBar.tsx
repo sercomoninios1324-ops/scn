@@ -10,6 +10,7 @@ import {
 } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { AnimatePresence, m as motion } from 'motion/react';
+import { trackSearch } from '../lib/tracking';
 import { ArrowUpDown, ChevronDown, Search, Tag, X } from 'lucide-react';
 import type { Category } from '../types';
 import type { CatalogProduct } from '../context/CatalogContext';
@@ -116,6 +117,7 @@ export default function CatalogSearchBar({
   const commitQ = useCallback(
     (value: string) => {
       setSearchParams((prev) => buildParams(prev, { q: value }), { replace: true });
+      trackSearch(value);
     },
     [setSearchParams]
   );

@@ -20,6 +20,7 @@ import {
 } from '../lib/cartShare';
 import { buildWhatsAppUrl } from '../lib/whatsapp';
 import CatalogImage from '../components/CatalogImage';
+import { trackWhatsAppCheckout } from '../lib/tracking';
 import VioletAurora from '../components/effects/VioletAurora';
 
 const formatPrice = (price: number) =>
@@ -123,6 +124,11 @@ export default function CartView() {
         settings.whatsapp_number
       );
       setSharedCode(share.code);
+      trackWhatsAppCheckout(
+        items.map((i) => ({ id: i.productId, name: i.name, price: i.price, quantity: i.qty })),
+        'carrito',
+        share.code
+      );
       window.open(href, '_blank', 'noopener,noreferrer');
     } catch (err) {
       setShareError(

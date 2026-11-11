@@ -5,6 +5,7 @@ import Footer from './Footer';
 import { useCatalog } from '../context/CatalogContext';
 import { useRaffle } from '../context/RaffleContext';
 import { trackVisit } from '../lib/analytics';
+import { startTagManager, trackPageView } from '../lib/tracking';
 
 // Solo se descarga si hay un sorteo activo
 const RaffleFloating = lazy(() => import('./raffle/RaffleFloating'));
@@ -21,10 +22,22 @@ function RouteFallback() {
 const LEGAL_PATHS = new Set(['/garantia', '/condiciones', '/privacidad']);
 
 export default function PublicLayout() {
-  const { settings, isAdminLoggedIn, handleLogout, error, refresh } = useCatalog();
+  const { settings, isAdminLoggedIn, isAdminChecking, handleLogout, error, refresh } = useCatalog();
   const location = useLocation();
   const prevPathRef = useRef(location.pathname);
   const { raffle } = useRaffle();
+
+  // Google Tag Manager: arranca cuando ya se sabe si es el admin (al admin no se lo mide)
+  useEffect(() => {
+    if (!isAdminChecking) startTagManager(isAdminLoggedIn);
+  }, [isAdminChecking, isAdminLoggedIn]);
+
+  // Página vista para GA4 (SPA): después de que la página nueva puso su título
+  useEffect(() => {
+    if (isAdminChecking) return undefined;
+    const t = window.setTimeout(() => trackPageView(location.pathname + location.search), 400);
+    return () => window.clearTimeout(t);
+  }, [location.pathname, location.search, isAdminChecking]);
 
   // Visitas: una por día por navegador (el servidor además descarta duplicados y países ≠ AR)
   useEffect(() => {

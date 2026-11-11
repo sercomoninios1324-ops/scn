@@ -107,6 +107,32 @@ y entrar a http://localhost:3000/personal con el usuario admin.
 
 ---
 
+## 8. Google Analytics 4 + Tag Manager
+
+El sitio ya trae Tag Manager integrado: solo falta crear las cuentas y cargar el ID.
+
+1. **GA4:** [analytics.google.com](https://analytics.google.com) → Administrar → Crear propiedad
+   ("SCN", zona horaria Argentina, moneda ARS) → Flujo de datos **Web** → `https://somos-scn.com.ar`.
+   Copiar el **ID de medición** (`G-XXXXXXXXXX`).
+   En el flujo de datos → Medición mejorada → engranaje → **desactivar "Cambios de página basados en eventos del historial"**
+   (el sitio ya manda `page_view` en cada cambio de página; con eso activado se contaría doble).
+2. **Tag Manager:** [tagmanager.google.com](https://tagmanager.google.com) → Crear cuenta → Contenedor **Web** `somos-scn.com.ar`.
+   Copiar el ID (`GTM-XXXXXXX`). Ignorar el código que ofrece pegar: el sitio ya lo carga.
+3. **En Tag Manager, dos etiquetas:**
+   - **Google tag** con el `G-XXXXXXXXXX`, activador **Initialization - All Pages**.
+     En *Configuración* agregar el parámetro `send_page_view` = `false`.
+   - **Evento de GA4**: nombre del evento `{{Event}}`, ID de medición el mismo, activar
+     "Enviar datos de comercio electrónico" (origen: capa de datos). Activador: **Evento personalizado**
+     con nombre `page_view|view_item|add_to_cart|begin_checkout|search|generate_lead` y "Usar coincidencia de expresión regular".
+   - **Publicar** el contenedor.
+4. **Vercel** → Settings → Environment Variables → `VITE_GTM_ID` = `GTM-XXXXXXX` → **Redeploy**.
+5. En GA4 → Administrar → Eventos → marcar **`begin_checkout`** (clic en Comprar por WhatsApp) y
+   **`generate_lead`** (participación en sorteo) como **eventos clave** (conversiones).
+
+Eventos que manda el sitio: `page_view`, `view_item`, `add_to_cart`, `begin_checkout`
+(WhatsApp desde la ficha o el carrito), `search` y `generate_lead` (sorteo). No se mandan datos personales.
+Tag Manager no se carga en dispositivos con "No contar este dispositivo" ni con la sesión del panel abierta.
+
 ### Notas técnicas
 
 - **Caché:** el catálogo público se cachea 60 s en el CDN de Vercel (`s-maxage=60`). Las fotos
