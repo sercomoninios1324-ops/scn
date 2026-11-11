@@ -35,9 +35,9 @@ export default function PublicLayout() {
   // Página vista para GA4 (SPA): después de que la página nueva puso su título
   useEffect(() => {
     if (isAdminChecking) return undefined;
-    const t = window.setTimeout(() => trackPageView(location.pathname + location.search), 400);
+    const t = window.setTimeout(() => trackPageView(location.pathname), 400);
     return () => window.clearTimeout(t);
-  }, [location.pathname, location.search, isAdminChecking]);
+  }, [location.pathname, isAdminChecking]);
 
   // Visitas: una por día por navegador (el servidor además descarta duplicados y países ≠ AR)
   useEffect(() => {

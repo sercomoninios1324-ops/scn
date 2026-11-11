@@ -109,29 +109,22 @@ y entrar a http://localhost:3000/personal con el usuario admin.
 
 ## 8. Google Analytics 4 + Tag Manager
 
-El sitio ya trae Tag Manager integrado: solo falta crear las cuentas y cargar el ID.
+Ya integrados en el código (no hay que pegar ningún snippet):
+- **GA4** `G-1JWW3HCJKH`: recibe los eventos directo desde el sitio.
+- **Tag Manager** `GTM-MS6SJLZ9`: cargado para sumar otras etiquetas (Meta, TikTok…) sin tocar código.
+  **No agregar etiquetas de GA4 / Google tag adentro de Tag Manager**: se contaría todo doble.
+- Para cambiar los IDs: variables `VITE_GA_ID` / `VITE_GTM_ID` en Vercel + Redeploy.
 
-1. **GA4:** [analytics.google.com](https://analytics.google.com) → Administrar → Crear propiedad
-   ("SCN", zona horaria Argentina, moneda ARS) → Flujo de datos **Web** → `https://somos-scn.com.ar`.
-   Copiar el **ID de medición** (`G-XXXXXXXXXX`).
-   En el flujo de datos → Medición mejorada → engranaje → **desactivar "Cambios de página basados en eventos del historial"**
-   (el sitio ya manda `page_view` en cada cambio de página; con eso activado se contaría doble).
-2. **Tag Manager:** [tagmanager.google.com](https://tagmanager.google.com) → Crear cuenta → Contenedor **Web** `somos-scn.com.ar`.
-   Copiar el ID (`GTM-XXXXXXX`). Ignorar el código que ofrece pegar: el sitio ya lo carga.
-3. **En Tag Manager, dos etiquetas:**
-   - **Google tag** con el `G-XXXXXXXXXX`, activador **Initialization - All Pages**.
-     En *Configuración* agregar el parámetro `send_page_view` = `false`.
-   - **Evento de GA4**: nombre del evento `{{Event}}`, ID de medición el mismo, activar
-     "Enviar datos de comercio electrónico" (origen: capa de datos). Activador: **Evento personalizado**
-     con nombre `page_view|view_item|add_to_cart|begin_checkout|search|generate_lead` y "Usar coincidencia de expresión regular".
-   - **Publicar** el contenedor.
-4. **Vercel** → Settings → Environment Variables → `VITE_GTM_ID` = `GTM-XXXXXXX` → **Redeploy**.
-5. En GA4 → Administrar → Eventos → marcar **`begin_checkout`** (clic en Comprar por WhatsApp) y
-   **`generate_lead`** (participación en sorteo) como **eventos clave** (conversiones).
+Pasos en GA4 (una sola vez):
+1. Administrar → Flujos de datos → el flujo web → **Medición mejorada** (engranaje) →
+   **desactivar "Cambios de página basados en eventos del historial"**. El sitio ya manda una página vista
+   por cada página; con esa opción activada se contaría doble.
+2. Administrar → Eventos (aparecen a las ~24 h del primer dato) → marcar **`begin_checkout`**
+   (clic en Comprar por WhatsApp) y **`generate_lead`** (participación en sorteo) como **eventos clave**.
 
-Eventos que manda el sitio: `page_view`, `view_item`, `add_to_cart`, `begin_checkout`
-(WhatsApp desde la ficha o el carrito), `search` y `generate_lead` (sorteo). No se mandan datos personales.
-Tag Manager no se carga en dispositivos con "No contar este dispositivo" ni con la sesión del panel abierta.
+Eventos: `page_view` (uno por página; filtros/búsquedas del catálogo no suman), `view_item`, `add_to_cart`,
+`begin_checkout` (ficha o carrito, con valor), `search`, `generate_lead`. Sin datos personales.
+No se cargan en `localhost`, con "No contar este dispositivo" ni con la sesión del panel abierta.
 
 ### Notas técnicas
 
